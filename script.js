@@ -1,24 +1,20 @@
-// Инициализация карты — ВАЖНО: attributionControl: false
+// Инициализация карты — attributionControl: false
 const map = L.map('map', {
   zoomControl: true,
-  attributionControl: false // 🔥 Отключаем показ атрибуций
+  attributionControl: false
 }).setView([53.9, 27.5667], 10); // Минск по умолчанию
 
 // Слои — БЕЗ атрибуций!
-const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  // attribution: '' — НИЧЕГО НЕ ПИШЕМ!
-});
+const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {});
 
-const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-  // attribution: '' — НИЧЕГО НЕ ПИШЕМ!
-});
+const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {});
 
-const hybrid = L.layerGroup([
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'),
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}')
-]);
+// Гибрид с НАДПИСЯМИ — используем World_Transportation
+const streetLabels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', {});
 
-// Контрол слоёв — но без атрибуций в названиях
+const hybrid = L.layerGroup([satellite, streetLabels]);
+
+// Контрол слоёв
 L.control.layers({
   'OSM': osm,
   'Спутник': satellite,
@@ -27,7 +23,7 @@ L.control.layers({
 
 osm.addTo(map);
 
-// Масштаб — можно оставить, он не содержит рекламы
+// Масштаб
 L.control.scale({ imperial: false, maxWidth: 200 }).addTo(map);
 
 // Загрузка зон
