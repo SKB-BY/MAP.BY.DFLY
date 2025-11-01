@@ -1,16 +1,16 @@
-// Инициализация карты
+// Инициализация карты — ВАЖНО: attributionControl: false
 const map = L.map('map', {
   zoomControl: true,
-  attributionControl: true
+  attributionControl: false // 🔥 Отключаем показ атрибуций
 }).setView([53.9, 27.5667], 10); // Минск по умолчанию
 
-// Слои
+// Слои — БЕЗ атрибуций!
 const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  // attribution: '' — НИЧЕГО НЕ ПИШЕМ!
 });
 
 const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-  attribution: 'Tiles &copy; Esri'
+  // attribution: '' — НИЧЕГО НЕ ПИШЕМ!
 });
 
 const hybrid = L.layerGroup([
@@ -18,16 +18,16 @@ const hybrid = L.layerGroup([
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}')
 ]);
 
-// Контрол слоёв
+// Контрол слоёв — но без атрибуций в названиях
 L.control.layers({
-  'OpenStreetMap': osm,
+  'OSM': osm,
   'Спутник': satellite,
   'Гибрид': hybrid
 }, {}, { position: 'topright' }).addTo(map);
 
 osm.addTo(map);
 
-// Масштаб и линейка
+// Масштаб — можно оставить, он не содержит рекламы
 L.control.scale({ imperial: false, maxWidth: 200 }).addTo(map);
 
 // Загрузка зон
