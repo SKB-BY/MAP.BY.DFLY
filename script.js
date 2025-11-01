@@ -36,31 +36,40 @@ function initMap() {
 }
 
 function loadKML() {
-  fetch('Fly_Zones_BY.txt')
-    .then(res => {
-      if (!res.ok) throw new Error(`KML не найден: ${res.status}`);
-      return res.text();
-    })
-    .then(kmlText => {
-      const kml = new DOMParser().parseFromString(kmlText, 'text/xml');
-      if (kml.documentElement.nodeName === 'parsererror') {
-        throw new Error('Ошибка парсинга KML');
+  const url = 'Fly_Zones_BY.kml';
+
+  const xhr = new XMLHttpRequest();
+  xhr.open('GET', url, true);
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState === 4) {
+      if (xhr.status === 200) {
+        try {
+          const kmlText = xhr.responseText;
+          const kml = new DOMParser().parseFromString(kmlText, 'text/xml');
+          if (kml.documentElement.nodeName === 'parsererror') {
+            throw new Error('Ошибка парсинга KML');
+          }
+          const geojson = toGeoJSON.kml(kml);
+          flyZonesGeoJSON = geojson;
+          flyZonesLayer = L.geoJSON(geojson, {
+            onEachFeature: (feature, layer) => {
+              const name = feature.properties.name || 'Зона';
+              layer.bindPopup(`<b>${name}</b>`);
+            },
+            style: { color: '#ff0000', weight: 2, fillOpacity: 0.1 }
+          }).addTo(map);
+          console.log('✅ KML загружен. Объектов:', geojson.features.length);
+        } catch (err) {
+          console.error('❌ Ошибка парсинга KML:', err);
+          alert('⚠️ Не удалось загрузить зоны полёта. Проверьте файл Fly_Zones_BY.kml.');
+        }
+      } else {
+        console.error('❌ HTTP ошибка:', xhr.status);
+        alert('⚠️ Не удалось загрузить зоны полёта. Проверьте файл Fly_Zones_BY.kml.');
       }
-      const geojson = toGeoJSON.kml(kml);
-      flyZonesGeoJSON = geojson;
-      flyZonesLayer = L.geoJSON(geojson, {
-        onEachFeature: (feature, layer) => {
-          const name = feature.properties.name || 'Зона';
-          layer.bindPopup(`<b>${name}</b>`);
-        },
-        style: { color: '#ff0000', weight: 2, fillOpacity: 0.1 }
-      }).addTo(map);
-      console.log('✅ KML загружен. Объектов:', geojson.features.length);
-    })
-    .catch(err => {
-      console.error('❌ Ошибка загрузки KML:', err);
-      alert('⚠️ Не удалось загрузить зоны полёта. Проверьте файл Fly_Zones_BY.txt.');
-    });
+    }
+  };
+  xhr.send();
 }
 
 function initButtons() {
@@ -129,14 +138,12 @@ function drawTempLine(e) {
   if (tempLine) map.removeLayer(tempLine);
   if (tempLabel) map.removeLayer(tempLabel);
 
-  // Яркая линия
   tempLine = L.polyline([centerPoint, e.latlng], {
     color: '#ffff00', // Жёлтый — хорошо виден на спутнике
     weight: 3,
     dashArray: '8,8'
   }).addTo(map);
 
-  // Метка с большим шрифтом и тенью
   tempLabel = L.marker(e.latlng, {
     icon: L.divIcon({
       className: 'distance-label',
