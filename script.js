@@ -17,8 +17,8 @@ function initMap() {
   // Слои
   const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {});
   const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {});
-  const topographic = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {});
-  const hybrid = L.layerGroup([satellite, topographic]);
+  const labels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', {});
+  const hybrid = L.layerGroup([satellite, labels]);
 
   L.control.layers({
     'OSM': osm,
@@ -36,40 +36,35 @@ function initMap() {
 }
 
 function loadKML() {
-  const url = 'Fly_Zones_BY.kml';
-
-  const xhr = new XMLHttpRequest();
-  xhr.open('GET', url, true);
-  xhr.onreadystatechange = function () {
-    if (xhr.readyState === 4) {
-      if (xhr.status === 200) {
-        try {
-          const kmlText = xhr.responseText;
-          const kml = new DOMParser().parseFromString(kmlText, 'text/xml');
-          if (kml.documentElement.nodeName === 'parsererror') {
-            throw new Error('Ошибка парсинга KML');
-          }
-          const geojson = toGeoJSON.kml(kml);
-          flyZonesGeoJSON = geojson;
-          flyZonesLayer = L.geoJSON(geojson, {
-            onEachFeature: (feature, layer) => {
-              const name = feature.properties.name || 'Зона';
-              layer.bindPopup(`<b>${name}</b>`);
-            },
-            style: { color: '#ff0000', weight: 2, fillOpacity: 0.1 }
-          }).addTo(map);
-          console.log('✅ KML загружен. Объектов:', geojson.features.length);
-        } catch (err) {
-          console.error('❌ Ошибка парсинга KML:', err);
-          alert('⚠️ Не удалось загрузить зоны полёта. Проверьте файл Fly_Zones_BY.kml.');
-        }
-      } else {
-        console.error('❌ HTTP ошибка:', xhr.status);
-        alert('⚠️ Не удалось загрузить зоны полёта. Проверьте файл Fly_Zones_BY.kml.');
-      }
+  fetch('Fly_Zones_BY.kml', {
+    headers: {
+      'Accept': 'text/plain'
     }
-  };
-  xhr.send();
+  })
+    .then(res => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.text();
+    })
+    .then(kmlText => {
+      const kml = new DOMParser().parseFromString(kmlText, 'text/xml');
+      if (kml.documentElement.nodeName === 'parsererror') {
+        throw new Error('Ошибка парсинга KML');
+      }
+      const geojson = toGeoJSON.kml(kml);
+      flyZonesGeoJSON = geojson;
+      flyZonesLayer = L.geoJSON(geojson, {
+        onEachFeature: (feature, layer) => {
+          const name = feature.properties.name || 'Зона';
+          layer.bindPopup(`<b>${name}</b>`);
+        },
+        style: { color: '#ff0000', weight: 2, fillOpacity: 0.1 }
+      }).addTo(map);
+      console.log('✅ KML загружен. Объектов:', geojson.features.length);
+    })
+    .catch(err => {
+      console.error('❌ Ошибка загрузки KML:', err);
+      alert('⚠️ Не удалось загрузить зоны полёта. Проверьте файл Fly_Zones_BY.kml.');
+    });
 }
 
 function initButtons() {
