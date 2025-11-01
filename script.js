@@ -129,16 +129,18 @@ function drawTempLine(e) {
   if (tempLine) map.removeLayer(tempLine);
   if (tempLabel) map.removeLayer(tempLabel);
 
+  // Яркая линия
   tempLine = L.polyline([centerPoint, e.latlng], {
-    color: 'blue',
-    weight: 2,
-    dashArray: '5,5'
+    color: '#ffff00', // Жёлтый — хорошо виден на спутнике
+    weight: 3,
+    dashArray: '8,8'
   }).addTo(map);
 
+  // Метка с большим шрифтом и тенью
   tempLabel = L.marker(e.latlng, {
     icon: L.divIcon({
       className: 'distance-label',
-      html: `${Math.round(distance)} м`,
+      html: `<div style="background: rgba(255,255,255,0.8); padding: 4px 8px; border: 2px solid #000; border-radius: 4px; font-size: 16px; font-weight: bold; box-shadow: 0 0 5px rgba(0,0,0,0.5);">${Math.round(distance)} м</div>`,
       iconSize: [0, 0]
     })
   }).addTo(map);
