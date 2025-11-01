@@ -107,6 +107,142 @@ btnCalculate.addEventListener('click', () => {
   // Создаём круг в GeoJSON через Turf (в км!)
   const centerArr = [centerPoint.lng, centerPoint.lat];
   const circleFeature = turf.circle(centerArr, radiusMeters / 1000, {
+// Инициализация карты
+const map = L.map('map', {
+  zoomControl: true,
+  attributionControl: false
+}).setView([53.9, 27.5667], 10); // Минск по умолчанию
+
+// Слои — БЕЗ атрибуций!
+const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {});
+
+// Спутниковый слой
+const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {});
+
+// Гибрид с НАДПИСЯМИ — Esri World Street Map
+const streetMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {});
+
+// Гибрид = спутник + надписи
+const hybrid = L.layerGroup([satellite, streetMap]);
+
+// Контрол слоёв
+L.control.layers({
+  'OSM': osm,
+  'Спутник': satellite,
+  'Гибрид': hybrid
+}, {}, { position: 'topright' }).addTo(map);
+
+osm.addTo(map);
+
+// Масштаб
+L.control.scale({ imperial: false, maxWidth: 200 }).addTo(map);
+
+// Загрузка зон
+let flyZonesGeoJSON = null;
+let flyZonesLayer = null;
+
+fetch('Fly_Zones_BY.kml')
+  .then(res => {
+    if (!res.ok) throw new Error(`KML не найден: ${res.status}`);
+    return res.text();
+  })
+  .then(kmlText => {
+    const kml = new DOMParser().parseFromString(kmlText, 'text/xml');
+    if (kml.documentElement.nodeName === 'parsererror') {
+      throw new Error('Ошибка парсинга KML');
+    }
+    const geojson = toGeoJSON.kml(kml);
+    flyZonesGeoJSON = geojson;
+    flyZonesLayer = omnivore.geojson(geojson)
+      .bindPopup(layer => layer.feature.properties.name || 'Зона')
+      .addTo(map);
+    console.log('Зоны загружены:', geojson.features.length);
+  })
+  .catch(err => {
+    console.error('Ошибка загрузки KML:', err);
+    alert('Не удалось загрузить зоны полёта. Проверьте файл Fly_Zones_BY.kml.');
+  });
+
+// Глобальные переменные режима Р-БЛА
+let rblaMode = false;
+let centerPoint = null;
+let tempLine = null;
+let tempCircle = null;
+let radiusMeters = null;
+
+// Кнопки
+const btnRbla = document.getElementById('btn-rbla');
+const btnGps = document.getElementById('btn-gps');
+const btnCalculate = document.getElementById('btn-calculate');
+
+btnGps.addEventListener('click', () => {
+  map.locate({ setView: true, maxZoom: 16 });
+});
+
+btnRbla.addEventListener('click', () => {
+  rblaMode = true;
+  btnRbla.disabled = true;
+  centerPoint = map.getCenter();
+  console.log('Центр установлен:', centerPoint);
+
+  map.dragging.disable();
+  map.on('mousemove', drawTempLine);
+  map.on('click', finishRadius);
+});
+
+function drawTempLine(e) {
+  if (!rblaMode) return;
+  if (tempLine) map.removeLayer(tempLine);
+  const distance = map.distance(centerPoint, e.latlng);
+  tempLine = L.polyline([centerPoint, e.latlng], { color: 'blue', dashArray: '5,5' }).addTo(map);
+}
+
+function finishRadius(e) {
+  if (!rblaMode) return;
+
+  const distance = map.distance(centerPoint, e.latlng);
+  if (isNaN(distance)) {
+    console.error('Ошибка расстояния:', distance);
+    alert('Не удалось рассчитать расстояние. Попробуйте ещё раз.');
+    resetRBLA();
+    return;
+  }
+
+  radiusMeters = Math.ceil(distance / 50) * 50;
+  console.log('Радиус:', radiusMeters, 'м');
+
+  map.off('mousemove', drawTempLine);
+  map.off('click', finishRadius);
+  map.dragging.enable();
+
+  if (tempLine) map.removeLayer(tempLine);
+  if (tempCircle) map.removeLayer(tempCircle);
+
+  tempCircle = L.circle(centerPoint, {
+    radius: radiusMeters,
+    color: 'red',
+    fillOpacity: 0.2
+  }).addTo(map);
+
+  btnCalculate.style.display = 'block';
+  rblaMode = false;
+}
+
+function resetRBLA() {
+  if (tempLine) map.removeLayer(tempLine);
+  if (tempCircle) map.removeLayer(tempCircle);
+  btnCalculate.style.display = 'none';
+  rblaMode = false;
+  btnRbla.disabled = false;
+  map.dragging.enable();
+}
+
+btnCalculate.addEventListener('click', () => {
+  if (!flyZonesGeoJSON || !tempCircle) return;
+
+  // Создаём круг в GeoJSON через Turf (в км!)
+  const centerArr = [centerPoint.lng, centerPoint.lat];
+  const circleFeature = turf.circle(centerArr, radiusMeters / 1000, {
     steps: 64,
     units: 'kilometers'
   });
