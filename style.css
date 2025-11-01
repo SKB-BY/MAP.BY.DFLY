@@ -67,12 +67,15 @@ html, body, #map {
   background: #f0f0f0;
 }
 
-/* Скрыть атрибуцию Leaflet и OpenStreetMap */
+/* СКРЫТЬ АТРИБУЦИИ И ЛОГОТИП LEAFLET */
 .leaflet-control-attribution {
   display: none !important;
 }
 
-/* Скрыть логотип Leaflet в нижнем левом углу */
 .leaflet-control-attribution a {
+  display: none !important;
+}
+
+.leaflet-container .leaflet-control-attribution {
   display: none !important;
 }
