@@ -8,6 +8,44 @@ let tempLabel = null;
 let tempCircle = null;
 let radiusMeters = null;
 
+// Функция для определения цвета по префиксу названия
+function getZoneColor(name) {
+  if (!name) return '#ff0000'; // красный по умолчанию
+  
+  if (name.startsWith('UMU_')) {
+    return 'rgba(128, 0, 128, 0.9)'; // фиолетовый с 90% прозрачностью
+  } else if (name.startsWith('UMD_')) {
+    return 'rgba(181, 126, 84, 0.9)'; // светло-коричневый с 90% прозрачностью
+  } else if (name.startsWith('UMP_')) {
+    return 'rgba(255, 165, 0, 0.9)'; // светло-оранжевый с 90% прозрачностью
+  } else if (name.startsWith('UMR_')) {
+    return 'rgba(255, 0, 0, 0.9)'; // красный с 90% прозрачностью
+  } else if (name.startsWith('ARD_')) {
+    return 'rgba(200, 200, 200, 0.9)'; // светло-серый с 90% прозрачностью
+  } else {
+    return 'rgba(255, 0, 0, 0.9)'; // красный по умолчанию
+  }
+}
+
+// Функция для получения границы (stroke) по префиксу
+function getZoneStroke(name) {
+  if (!name) return '#ff0000';
+  
+  if (name.startsWith('UMU_')) {
+    return '#800080'; // темно-фиолетовый
+  } else if (name.startsWith('UMD_')) {
+    return '#654321'; // темно-коричневый
+  } else if (name.startsWith('UMP_')) {
+    return '#cc8400'; // темно-оранжевый
+  } else if (name.startsWith('UMR_')) {
+    return '#cc0000'; // темно-красный
+  } else if (name.startsWith('ARD_')) {
+    return '#666666'; // темно-серый
+  } else {
+    return '#cc0000'; // темно-красный по умолчанию
+  }
+}
+
 function initMap() {
   map = L.map('map', {
     zoomControl: true,
@@ -43,18 +81,25 @@ function loadZones() {
     })
     .then(geojson => {
       flyZonesGeoJSON = geojson;
+      
+      // Создаем слой с динамической стилизацией
       flyZonesLayer = L.geoJSON(geojson, {
         onEachFeature: (feature, layer) => {
           const name = feature.properties.name || 'Зона';
           const description = feature.properties.description || '';
           layer.bindPopup(`<b>${name}</b><br>${description}`);
         },
-        style: { 
-          color: '#ff0000', 
-          weight: 2, 
-          fillOpacity: 0.1 
+        style: function(feature) {
+          const name = feature.properties.name || '';
+          return {
+            color: getZoneStroke(name),      // цвет границы
+            fillColor: getZoneColor(name),    // цвет заливки
+            weight: 2,                        // толщина границы
+            fillOpacity: 0.9                  // прозрачность заливки
+          };
         }
       }).addTo(map);
+      
       console.log('✅ GeoJSON загружен. Объектов:', geojson.features.length);
     })
     .catch(err => {
