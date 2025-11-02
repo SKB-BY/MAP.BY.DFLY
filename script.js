@@ -1,6 +1,4 @@
 let map;
-let flyZonesGeoJSON = null;
-let flyZonesLayer = null;
 let rblaMode = false;
 let centerPoint = null;
 let tempLine = null;
@@ -28,43 +26,8 @@ function initMap() {
 
   osm.addTo(map); // По умолчанию — OSM
 
-  // Загрузка KML
-  loadKML();
-
   // Кнопки
   initButtons();
-}
-
-function loadKML() {
-  fetch('Fly_Zones_BY.kml', {
-    headers: {
-      'Accept': 'text/plain'
-    }
-  })
-    .then(res => {
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.text();
-    })
-    .then(kmlText => {
-      const kml = new DOMParser().parseFromString(kmlText, 'text/xml');
-      if (kml.documentElement.nodeName === 'parsererror') {
-        throw new Error('Ошибка парсинга KML');
-      }
-      const geojson = toGeoJSON.kml(kml);
-      flyZonesGeoJSON = geojson;
-      flyZonesLayer = L.geoJSON(geojson, {
-        onEachFeature: (feature, layer) => {
-          const name = feature.properties.name || 'Зона';
-          layer.bindPopup(`<b>${name}</b>`);
-        },
-        style: { color: '#ff0000', weight: 2, fillOpacity: 0.1 }
-      }).addTo(map);
-      console.log('✅ KML загружен. Объектов:', geojson.features.length);
-    })
-    .catch(err => {
-      console.error('❌ Ошибка загрузки KML:', err);
-      alert('⚠️ Не удалось загрузить зоны полёта. Проверьте файл Fly_Zones_BY.kml.');
-    });
 }
 
 function initButtons() {
@@ -89,35 +52,17 @@ function initButtons() {
   });
 
   btnCalculate.addEventListener('click', () => {
-    if (!tempCircle || !flyZonesGeoJSON) {
+    if (!tempCircle) {
       alert('Нет данных для расчёта.');
       return;
     }
-
-    const centerArr = [centerPoint.lng, centerPoint.lat];
-    const circleFeature = turf.circle(centerArr, radiusMeters / 1000, { steps: 64 });
-
-    const intersectingNames = [];
-    flyZonesGeoJSON.features.forEach(zone => {
-      try {
-        if (turf.booleanIntersects(circleFeature, zone)) {
-          const name = zone.properties.name || 'Зона';
-          if (!intersectingNames.includes(name)) {
-            intersectingNames.push(name);
-          }
-        }
-      } catch (e) {}
-    });
 
     let content = `
       <b>Центр:</b> ${centerPoint.lat.toFixed(6)}, ${centerPoint.lng.toFixed(6)}<br>
       <b>Радиус:</b> ${radiusMeters} м<br>
     `;
-    if (intersectingNames.length > 0) {
-      content += `<b>Пересекает зоны:</b><br>• ${intersectingNames.join('<br>• ')}`;
-    } else {
-      content += `<b>Пересечений нет</b>`;
-    }
+    // Заглушка вместо KML
+    content += `<b>Пересечений нет</b>`;
 
     tempCircle.bindPopup(content).openPopup();
     btnCalculate.style.display = 'none';
