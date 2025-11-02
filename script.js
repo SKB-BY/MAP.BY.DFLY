@@ -9,56 +9,57 @@ let tempCircle = null;
 let radiusMeters = null;
 
 function getZoneStyle(name) {
-  // Устанавливаем базовые стили
-  const style = {
+  // Базовые стили для всех зон
+  const baseStyle = {
     weight: 2,
-    opacity: 0.9, // Прозрачность обводки
-    fillOpacity: 0.3 // УВЕЛИЧЕНА прозрачность заливки для лучшей видимости
+    opacity: 0.9,     // Прозрачность контура
+    fillOpacity: 0.3  // Прозрачность заливки (увеличена для лучшей видимости)
   };
 
   if (!name) {
     return {
-      ...style,
-      color: '#ff0000',
-      fillColor: '#ff0000' // УБРАН rgba, используется hex + fillOpacity
+      ...baseStyle,
+      color: '#ff0000',    // Красный контур
+      fillColor: '#ff0000' // Красная заливка
     };
   }
 
+  // Определяем цвета в зависимости от типа зоны
   if (name.startsWith('UMU_')) {
     return {
-      ...style,
-      color: '#800080',
-      fillColor: '#800080' // УБРАН rgba
+      ...baseStyle,
+      color: '#800080',    // Темно-фиолетовый контур
+      fillColor: '#800080' // Фиолетовая заливка
     };
   } else if (name.startsWith('UMD_')) {
     return {
-      ...style,
-      color: '#654321',
-      fillColor: '#b57e54' // УБРАН rgba
+      ...baseStyle,
+      color: '#654321',    // Темно-коричневый контур
+      fillColor: '#b57e54' // Светло-коричневая заливка
     };
   } else if (name.startsWith('UMP_')) {
     return {
-      ...style,
-      color: '#cc8400',
-      fillColor: '#ffa500' // УБРАН rgba
+      ...baseStyle,
+      color: '#cc8400',    // Темно-оранжевый контур
+      fillColor: '#ffa500' // Оранжевая заливка
     };
   } else if (name.startsWith('UMR_')) {
     return {
-      ...style,
-      color: '#cc0000',
-      fillColor: '#ff0000' // УБРАН rgba
+      ...baseStyle,
+      color: '#cc0000',    // Темно-красный контур
+      fillColor: '#ff0000' // Красная заливка
     };
   } else if (name.startsWith('ARD_')) {
     return {
-      ...style,
-      color: '#666666',
-      fillColor: '#c8c8c8' // УБРАН rgba
+      ...baseStyle,
+      color: '#666666',    // Темно-серый контур
+      fillColor: '#c8c8c8' // Светло-серовая заливка
     };
   } else {
     return {
-      ...style,
-      color: '#cc0000',
-      fillColor: '#ff0000' // УБРАН rgba
+      ...baseStyle,
+      color: '#cc0000',    // Контур по умолчанию
+      fillColor: '#ff0000' // Заливка по умолчанию
     };
   }
 }
@@ -124,56 +125,64 @@ function initButtons() {
   const btnGps = document.getElementById('btn-gps');
   const btnCalculate = document.getElementById('btn-calculate');
 
-  btnGps.addEventListener('click', () => {
-    map.locate({ setView: true, maxZoom: 16 });
-  });
-
-  btnRbla.addEventListener('click', () => {
-    if (rblaMode) return;
-
-    rblaMode = true;
-    btnRbla.disabled = true;
-    centerPoint = map.getCenter();
-
-    map.dragging.disable();
-    map.on('mousemove', drawTempLine);
-    map.once('click', finishRadius);
-  });
-
-  btnCalculate.addEventListener('click', () => {
-    if (!tempCircle || !flyZonesGeoJSON) {
-      alert('Нет данных для расчёта.');
-      return;
-    }
-
-    const centerArr = [centerPoint.lng, centerPoint.lat];
-    const circleFeature = turf.circle(centerArr, radiusMeters / 1000, { steps: 64 });
-
-    const intersectingNames = [];
-    flyZonesGeoJSON.features.forEach(zone => {
-      try {
-        if (turf.booleanIntersects(circleFeature, zone)) {
-          const name = zone.properties.name || 'Зона';
-          if (!intersectingNames.includes(name)) {
-            intersectingNames.push(name);
-          }
-        }
-      } catch (e) {}
+  if (btnGps) {
+    btnGps.addEventListener('click', () => {
+      map.locate({ setView: true, maxZoom: 16 });
     });
+  }
 
-    let content = `
-      <b>Центр:</b> ${centerPoint.lat.toFixed(6)}, ${centerPoint.lng.toFixed(6)}<br>
-      <b>Радиус:</b> ${radiusMeters} м<br>
-    `;
-    if (intersectingNames.length > 0) {
-      content += `<b>Пересекает зоны:</b><br>• ${intersectingNames.join('<br>• ')}`;
-    } else {
-      content += `<b>Пересечений нет</b>`;
-    }
+  if (btnRbla) {
+    btnRbla.addEventListener('click', () => {
+      if (rblaMode) return;
 
-    tempCircle.bindPopup(content).openPopup();
-    btnCalculate.style.display = 'none';
-  });
+      rblaMode = true;
+      btnRbla.disabled = true;
+      centerPoint = map.getCenter();
+
+      map.dragging.disable();
+      map.on('mousemove', drawTempLine);
+      map.once('click', finishRadius);
+    });
+  }
+
+  if (btnCalculate) {
+    btnCalculate.addEventListener('click', () => {
+      if (!tempCircle || !flyZonesGeoJSON) {
+        alert('Нет данных для расчёта.');
+        return;
+      }
+
+      const centerArr = [centerPoint.lng, centerPoint.lat];
+      const circleFeature = turf.circle(centerArr, radiusMeters / 1000, { steps: 64 });
+
+      const intersectingNames = [];
+      flyZonesGeoJSON.features.forEach(zone => {
+        try {
+          if (turf.booleanIntersects(circleFeature, zone)) {
+            const name = zone.properties.name || 'Зона';
+            if (!intersectingNames.includes(name)) {
+              intersectingNames.push(name);
+            }
+          }
+        } catch (e) {
+          console.warn('Ошибка при проверке пересечения:', e);
+        }
+      });
+
+      let content = `
+        <b>Центр:</b> ${centerPoint.lat.toFixed(6)}, ${centerPoint.lng.toFixed(6)}<br>
+        <b>Радиус:</b> ${radiusMeters} м<br>
+      `;
+      if (intersectingNames.length > 0) {
+        content += `<b>Пересекает зоны:</b><br>• ${intersectingNames.join('<br>• ')}`;
+      } else {
+        content += `<b>Пересечений нет</b>`;
+      }
+
+      tempCircle.bindPopup(content).openPopup();
+      btnCalculate.style.display = 'none';
+    });
+  }
 }
 
 function drawTempLine(e) {
@@ -222,13 +231,20 @@ function finishRadius(e) {
     fillOpacity: 0.2
   }).addTo(map);
 
-  document.getElementById('btn-calculate').style.display = 'block';
+  const btnCalculate = document.getElementById('btn-calculate');
+  if (btnCalculate) {
+    btnCalculate.style.display = 'block';
+  }
+  
   resetRBLA();
 }
 
 function resetRBLA() {
   rblaMode = false;
-  document.getElementById('btn-rbla').disabled = false;
+  const btnRbla = document.getElementById('btn-rbla');
+  if (btnRbla) {
+    btnRbla.disabled = false;
+  }
   map.dragging.enable();
   map.off('mousemove', drawTempLine);
 }
