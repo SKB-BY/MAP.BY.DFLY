@@ -111,19 +111,6 @@ function loadZones() {
         }
       }).addTo(map);
       
-      
-      
-        style: function(feature) {
-          const name = feature.properties.name || '';
-          return {
-            color: getZoneStroke(name),      // цвет границы
-            fillColor: getZoneColor(name),    // цвет заливки
-            weight: 2,                        // толщина границы
-            fillOpacity: 0.9                  // прозрачность заливки
-          };
-        }
-      }).addTo(map);
-      
       console.log('✅ GeoJSON загружен. Объектов:', geojson.features.length);
     })
     .catch(err => {
