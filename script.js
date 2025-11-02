@@ -13,52 +13,52 @@ function getZoneStyle(name) {
   const style = {
     weight: 2,
     opacity: 0.9, // Прозрачность обводки
-    fillOpacity: 0.9 // Прозрачность заливки
+    fillOpacity: 0.3 // УВЕЛИЧЕНА прозрачность заливки для лучшей видимости
   };
 
   if (!name) {
     return {
       ...style,
-      color: '#ff0000', // Цвет обводки
-      fillColor: '#ff0000' // Цвет заливки
+      color: '#ff0000',
+      fillColor: '#ff0000' // УБРАН rgba, используется hex + fillOpacity
     };
   }
 
   if (name.startsWith('UMU_')) {
     return {
       ...style,
-      color: '#800080', // Темно-фиолетовый цвет обводки
-      fillColor: 'rgba(128, 0, 128, 0.9)' // Фиолетовый с 90% прозрачностью
+      color: '#800080',
+      fillColor: '#800080' // УБРАН rgba
     };
   } else if (name.startsWith('UMD_')) {
     return {
       ...style,
-      color: '#654321', // Темно-коричневый цвет обводки
-      fillColor: 'rgba(181, 126, 84, 0.9)' // Светло-коричневый с 90% прозрачностью
+      color: '#654321',
+      fillColor: '#b57e54' // УБРАН rgba
     };
   } else if (name.startsWith('UMP_')) {
     return {
       ...style,
-      color: '#cc8400', // Темно-оранжевый цвет обводки
-      fillColor: 'rgba(255, 165, 0, 0.9)' // Светло-оранжевый с 90% прозрачностью
+      color: '#cc8400',
+      fillColor: '#ffa500' // УБРАН rgba
     };
   } else if (name.startsWith('UMR_')) {
     return {
       ...style,
-      color: '#cc0000', // Темно-красный цвет обводки
-      fillColor: 'rgba(255, 0, 0, 0.9)' // Красный с 90% прозрачностью
+      color: '#cc0000',
+      fillColor: '#ff0000' // УБРАН rgba
     };
   } else if (name.startsWith('ARD_')) {
     return {
       ...style,
-      color: '#666666', // Темно-серый цвет обводки
-      fillColor: 'rgba(200, 200, 200, 0.9)' // Светло-серый с 90% прозрачностью
+      color: '#666666',
+      fillColor: '#c8c8c8' // УБРАН rgba
     };
   } else {
     return {
       ...style,
       color: '#cc0000',
-      fillColor: 'rgba(255, 0, 0, 0.9)'
+      fillColor: '#ff0000' // УБРАН rgba
     };
   }
 }
@@ -102,12 +102,12 @@ function loadZones() {
       // Создаем слой с динамической стилизацией
       flyZonesLayer = L.geoJSON(geojson, {
         onEachFeature: (feature, layer) => {
-        const name = feature.properties.name || 'Зона';
-        const description = feature.properties.description || '';
-        layer.bindPopup(`<b>${name}</b><br>${description}`);
-      },
-      style: function(feature) {
-        return getZoneStyle(feature.properties.name);
+          const name = feature.properties.name || 'Зона';
+          const description = feature.properties.description || '';
+          layer.bindPopup(`<b>${name}</b><br>${description}`);
+        },
+        style: function(feature) {
+          return getZoneStyle(feature.properties.name);
         }
       }).addTo(map);
       
@@ -186,7 +186,7 @@ function drawTempLine(e) {
   if (tempLabel) map.removeLayer(tempLabel);
 
   tempLine = L.polyline([centerPoint, e.latlng], {
-    color: '#ffff00', // Жёлтый — хорошо виден на спутнике
+    color: '#ffff00',
     weight: 3,
     dashArray: '8,8'
   }).addTo(map);
@@ -222,7 +222,7 @@ function finishRadius(e) {
     fillOpacity: 0.2
   }).addTo(map);
 
-  btnCalculate.style.display = 'block';
+  document.getElementById('btn-calculate').style.display = 'block';
   resetRBLA();
 }
 
