@@ -142,7 +142,7 @@ function drawTempLine(e) {
   tempLabel = L.marker(e.latlng, {
     icon: L.divIcon({
       className: 'distance-label',
-      html: `<div style="background: rgba(255,255,255,0.8); padding: 4px 8px; border: 2px solid #000; border-radius: 4px; font-size: 16px; font-weight: bold; box-shadow: 0 0 5px rgba(0,0,0,0.5);">${Math.round(distance)} м</div>`,
+      html: `<div style="background: rgba(255,255,255,0.9); padding: 6px 10px; border: 3px solid #ff0000; border-radius: 6px; font-size: 20px; font-weight: bold; box-shadow: 0 0 8px rgba(0,0,0,0.7); color: #000; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">${Math.round(distance)} м</div>`,
       iconSize: [0, 0]
     })
   }).addTo(map);
