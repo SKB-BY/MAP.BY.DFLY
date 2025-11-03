@@ -50,18 +50,6 @@ function getZoneStyle(name) {
       color: '#cc0000',    // Темно-красный контур
       fillColor: '#ff0000' // Красная заливка
     };
-  } else if (name.startsWith('ARD_')) {
-    return {
-      ...baseStyle,
-      color: '#666666',    // Темно-серый контур
-      fillColor: '#c8c8c8' // Светло-серовая заливка
-    };
-  } else if (name.startsWith('ARZ_')) {
-    return {
-      ...baseStyle,
-      color: '#666666',    // Темно-серый контур
-      fillColor: '#c8c8c8' // Светло-серовая заливка
-    };
   } else {
     return {
       ...baseStyle,
