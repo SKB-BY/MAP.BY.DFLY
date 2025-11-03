@@ -11,7 +11,7 @@ let coordinatesDisplay = null;
 let operatorMarker = null;
 let elevationCache = {};
 let lastElevationRequest = 0;
-const ELEVATION_REQUEST_DELAY = 1000; // Увеличили задержку до 1 секунды
+const ELEVATION_REQUEST_DELAY = 1000;
 let pendingElevationRequest = null;
 
 function getZoneStyle(name) {
@@ -74,20 +74,15 @@ function getZoneStyle(name) {
   }
 }
 
-// Улучшенная функция получения высоты с кэшированием и ограничением
 async function getElevation(lat, lng) {
-  // Округляем координаты для кэширования (до 3 знаков после запятой ~100м точность)
   const cacheKey = `${lat.toFixed(3)},${lng.toFixed(3)}`;
   
-  // Проверяем кэш
   if (elevationCache[cacheKey] !== undefined) {
     return elevationCache[cacheKey];
   }
   
-  // Ограничиваем частоту запросов
   const now = Date.now();
   if (now - lastElevationRequest < ELEVATION_REQUEST_DELAY) {
-    // Если запрос уже выполняется, ждем его
     if (pendingElevationRequest) {
       return pendingElevationRequest;
     }
@@ -96,7 +91,6 @@ async function getElevation(lat, lng) {
   
   lastElevationRequest = now;
   
-  // Создаем промис для отслеживания текущего запроса
   pendingElevationRequest = new Promise(async (resolve) => {
     try {
       const response = await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lng}`);
@@ -109,7 +103,6 @@ async function getElevation(lat, lng) {
       
       if (data.results && data.results[0]) {
         const elevation = data.results[0].elevation;
-        // Сохраняем в кэш
         elevationCache[cacheKey] = elevation;
         resolve(elevation);
       } else {
@@ -128,15 +121,9 @@ async function getElevation(lat, lng) {
   return pendingElevationRequest;
 }
 
-// Приблизительная высота для Беларуси
 function getApproximateElevation(lat, lng) {
-  // Беларусь в основном равнинная страна
-  // Средняя высота: 160 м, максимальная: 345 м (г. Дзержинская)
   const baseHeight = 160;
-  
-  // Небольшие вариации в зависимости от координат
   const variation = Math.sin(lat * 10) * 50 + Math.cos(lng * 10) * 30;
-  
   return Math.max(100, baseHeight + variation);
 }
 
@@ -164,7 +151,6 @@ function initCoordinatesDisplay() {
   coordinatesDisplay.addTo(map);
 }
 
-// Оптимизированное обновление координат с троттлингом
 let updateTimeout = null;
 function updateCoordinates(e) {
   if (updateTimeout) {
@@ -175,7 +161,7 @@ function updateCoordinates(e) {
     if (coordinatesDisplay) {
       coordinatesDisplay.update([e.latlng.lat, e.latlng.lng]);
     }
-  }, 200); // Увеличили задержку до 200 мс
+  }, 200);
 }
 
 function initMap() {
@@ -188,7 +174,6 @@ function initMap() {
     tapTolerance: isMobile ? 15 : 10
   }).setView([53.9, 27.5667], 10);
 
-  // Слои
   const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     detectRetina: isMobile
   });
@@ -208,21 +193,15 @@ function initMap() {
 
   osm.addTo(map);
 
-  // Инициализация отображения координат
   initCoordinatesDisplay();
 
-  // Событие перемещения курсора по карте
   map.on('mousemove', updateCoordinates);
 
-  // Для мобильных устройств
   if (isMobile) {
     map.on('touchmove', updateCoordinates);
   }
 
-  // Загрузка GeoJSON
   loadZones();
-
-  // Кнопки
   initButtons();
 }
 
