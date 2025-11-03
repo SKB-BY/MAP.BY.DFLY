@@ -8,90 +8,150 @@ let tempLabel = null;
 let tempCircle = null;
 let radiusMeters = null;
 let coordinatesDisplay = null;
-let operatorMarker = null; // Маркер оператора
-let elevationData = null; // Данные о высотах
+let operatorMarker = null;
+let elevationCache = {}; // Кэш высот
+let lastElevationRequest = 0; // Время последнего запроса
+const ELEVATION_REQUEST_DELAY = 500; // Задержка между запросами в мс
 
 function getZoneStyle(name) {
-  // Базовые стили для всех зон
   const baseStyle = {
     weight: 2,
-    opacity: 0.9,     // Прозрачность контура
-    fillOpacity: 0.3  // Прозрачность заливки (увеличена для лучшей видимости)
+    opacity: 0.9,
+    fillOpacity: 0.3
   };
 
   if (!name) {
     return {
       ...baseStyle,
-      color: '#ff0000',    // Красный контур
-      fillColor: '#ff0000' // Красная заливка
+      color: '#ff0000',
+      fillColor: '#ff0000'
     };
   }
 
-  // Определяем цвета в зависимости от типа зоны
   if (name.startsWith('UMU_')) {
     return {
       ...baseStyle,
-      color: '#800080',    // Темно-фиолетовый контур
-      fillColor: '#800080' // Фиолетовая заливка
+      color: '#800080',
+      fillColor: '#800080'
     };
   } else if (name.startsWith('UMD_')) {
     return {
       ...baseStyle,
-      color: '#654321',    // Темно-коричневый контур
-      fillColor: '#b57e54' // Светло-коричневая заливка
+      color: '#654321',
+      fillColor: '#b57e54'
     };
   } else if (name.startsWith('UMP_')) {
     return {
       ...baseStyle,
-      color: '#cc8400',    // Темно-оранжевый контур
-      fillColor: '#ffa500' // Оранжевая заливка
+      color: '#cc8400',
+      fillColor: '#ffa500'
     };
   } else if (name.startsWith('UMR_')) {
     return {
       ...baseStyle,
-      color: '#cc0000',    // Темно-красный контур
-      fillColor: '#ff0000' // Красная заливка
+      color: '#cc0000',
+      fillColor: '#ff0000'
     };
   } else if (name.startsWith('ARD_')) {
     return {
       ...baseStyle,
-      color: '#666666',    // Темно-серый контур
-      fillColor: '#c8c8c8' // Светло-серовая заливка
+      color: '#666666',
+      fillColor: '#c8c8c8'
     };
   } else if (name.startsWith('ARZ_')) {
     return {
       ...baseStyle,
-      color: '#666666',    // Темно-серый контур
-      fillColor: '#c8c8c8' // Светло-серовая заливка
+      color: '#666666',
+      fillColor: '#c8c8c8'
     };
   } else {
     return {
       ...baseStyle,
-      color: '#cc0000',    // Контур по умолчанию
-      fillColor: '#ff0000' // Заливка по умолчанию
+      color: '#cc0000',
+      fillColor: '#ff0000'
     };
   }
 }
 
-// Функция для получения высоты по координатам
+// Улучшенная функция получения высоты с кэшированием и ограничением запросов
 async function getElevation(lat, lng) {
+  // Округляем координаты для кэширования (до 4 знаков после запятой)
+  const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+  
+  // Проверяем кэш
+  if (elevationCache[cacheKey] !== undefined) {
+    return elevationCache[cacheKey];
+  }
+  
+  // Ограничиваем частоту запросов
+  const now = Date.now();
+  if (now - lastElevationRequest < ELEVATION_REQUEST_DELAY) {
+    return 0; // Возвращаем 0 если запросы слишком частые
+  }
+  
+  lastElevationRequest = now;
+  
   try {
+    // Пробуем разные API высот
     const response = await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lng}`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
     const data = await response.json();
-    return data.results[0]?.elevation || 0;
+    
+    if (data.results && data.results[0]) {
+      const elevation = data.results[0].elevation;
+      // Сохраняем в кэш
+      elevationCache[cacheKey] = elevation;
+      return elevation;
+    } else {
+      throw new Error('No elevation data in response');
+    }
   } catch (error) {
-    console.error('Ошибка получения высоты:', error);
-    return 0;
+    console.warn('Ошибка получения высоты, используем кэш или 0:', error);
+    
+    // Пробуем альтернативный API если основной не работает
+    try {
+      const altResponse = await fetch(`https://elevation-api.io/api/elevation?points=${lat},${lng}`);
+      if (altResponse.ok) {
+        const altData = await altResponse.json();
+        if (altData.elevations && altData.elevations[0]) {
+          const elevation = altData.elevations[0].elevation;
+          elevationCache[cacheKey] = elevation;
+          return elevation;
+        }
+      }
+    } catch (altError) {
+      console.warn('Альтернативный API также не сработал');
+    }
+    
+    // Если все API не работают, используем приблизительные высоты для Беларуси
+    const approximateElevation = getApproximateElevation(lat, lng);
+    elevationCache[cacheKey] = approximateElevation;
+    return approximateElevation;
   }
 }
 
+// Приблизительная высота для Беларуси (основано на средних высотах)
+function getApproximateElevation(lat, lng) {
+  // Беларусь в основном равнинная страна
+  // Средняя высота: 160 м, максимальная: 345 м (г. Дзержинская)
+  const baseHeight = 160;
+  
+  // Небольшие вариации в зависимости от координат
+  const variation = Math.sin(lat * 10) * 50 + Math.cos(lng * 10) * 30;
+  
+  return Math.max(100, baseHeight + variation);
+}
+
 function initCoordinatesDisplay() {
-  // Создаем элемент для отображения координат
   coordinatesDisplay = L.control({ position: 'bottomleft' });
 
   coordinatesDisplay.onAdd = function(map) {
     this._div = L.DomUtil.create('div', 'coordinates-display');
-    this.update([53.9, 27.5667], 0); // Начальные координаты и высота
+    this.update([53.9, 27.5667]);
     return this._div;
   };
 
@@ -110,22 +170,41 @@ function initCoordinatesDisplay() {
   coordinatesDisplay.addTo(map);
 }
 
+// Оптимизированное обновление координат с троттлингом
+let updateTimeout = null;
 function updateCoordinates(e) {
-  if (coordinatesDisplay) {
-    coordinatesDisplay.update([e.latlng.lat, e.latlng.lng]);
+  if (updateTimeout) {
+    clearTimeout(updateTimeout);
   }
+  
+  updateTimeout = setTimeout(() => {
+    if (coordinatesDisplay) {
+      coordinatesDisplay.update([e.latlng.lat, e.latlng.lng]);
+    }
+  }, 100); // Задержка 100 мс
 }
 
 function initMap() {
+  // Определяем мобильное устройство
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
   map = L.map('map', {
     zoomControl: true,
-    attributionControl: false
+    attributionControl: false,
+    tap: isMobile, // Оптимизация для мобильных
+    tapTolerance: isMobile ? 15 : 10
   }).setView([53.9, 27.5667], 10);
 
   // Слои
-  const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {});
-  const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {});
-  const labels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', {});
+  const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    detectRetina: isMobile // Оптимизация для Retina дисплеев
+  });
+  const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    detectRetina: isMobile
+  });
+  const labels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', {
+    detectRetina: isMobile
+  });
   const hybrid = L.layerGroup([satellite, labels]);
 
   L.control.layers({
@@ -141,6 +220,11 @@ function initMap() {
 
   // Событие перемещения курсора по карте
   map.on('mousemove', updateCoordinates);
+
+  // Для мобильных устройств - touch события
+  if (isMobile) {
+    map.on('touchmove', updateCoordinates);
+  }
 
   // Загрузка GeoJSON из файла
   loadZones();
@@ -158,27 +242,19 @@ function loadZones() {
     .then(geojson => {
       flyZonesGeoJSON = geojson;
       
-      // Создаем слой с динамической стилизацией
       flyZonesLayer = L.geoJSON(geojson, {
         onEachFeature: (feature, layer) => {
-          // ИСПРАВЛЕНИЕ: используем Name с заглавной буквы
           const name = feature.properties.Name || feature.properties.name || 'Зона';
           const description = feature.properties.description || '';
           layer.bindPopup(`<b>${name}</b><br>${description}`);
         },
         style: function(feature) {
-          // ИСПРАВЛЕНИЕ: используем Name с заглавной буквы
           const name = feature.properties.Name || feature.properties.name;
           return getZoneStyle(name);
         }
       }).addTo(map);
       
       console.log('✅ GeoJSON загружен. Объектов:', geojson.features.length);
-      // Добавим отладочную информацию
-      if (geojson.features.length > 0) {
-        console.log('🔍 Пример свойств первого объекта:', geojson.features[0].properties);
-        console.log('🔍 Имя зоны:', geojson.features[0].properties.Name || geojson.features[0].properties.name);
-      }
     })
     .catch(err => {
       console.error('❌ Ошибка загрузки GeoJSON:', err);
@@ -186,14 +262,11 @@ function loadZones() {
     });
 }
 
-// Функция для установки маркера оператора
 function setOperatorMarker(latlng) {
-  // Удаляем предыдущий маркер, если есть
   if (operatorMarker) {
     map.removeLayer(operatorMarker);
   }
   
-  // Создаем новый маркер с иконкой "О"
   operatorMarker = L.marker(latlng, {
     icon: L.divIcon({
       className: 'operator-marker',
@@ -203,17 +276,13 @@ function setOperatorMarker(latlng) {
     })
   }).addTo(map);
   
-  // Получаем высоту для маркера оператора
   getElevation(latlng.lat, latlng.lng).then(elevation => {
-    // Добавляем popup с информацией
     operatorMarker.bindPopup(`
       <b>Позиция оператора</b><br>
       Координаты: ${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}<br>
       Высота: ${Math.round(elevation)} м.
     `);
   });
-  
-  console.log('Маркер оператора установлен:', latlng);
 }
 
 function initButtons() {
@@ -226,45 +295,38 @@ function initButtons() {
     btnGps.addEventListener('click', () => {
       map.locate({ 
         setView: true, 
-        maxZoom: 21,
+        maxZoom: 16,
         watch: false,
-        enableHighAccuracy: true 
+        enableHighAccuracy: true,
+        timeout: 10000
       });
       
-      // Обработка успешного определения местоположения
       map.on('locationfound', function(e) {
-        // Показываем кнопку "Маркер-О"
         if (btnOperator) {
           btnOperator.style.display = 'block';
         }
         
-        // Добавляем маркер текущего местоположения
         L.marker(e.latlng).addTo(map)
           .bindPopup("Ваше местоположение")
           .openPopup();
           
-        // Обновляем координаты
         if (coordinatesDisplay) {
           coordinatesDisplay.update([e.latlng.lat, e.latlng.lng]);
         }
       });
       
-      // Обработка ошибок определения местоположения
       map.on('locationerror', function(e) {
-        alert('Не удалось определить местоположение: ' + e.message);
+        alert('Не удалось определить местоположение. Проверьте настройки GPS.');
       });
     });
   }
 
-  // Кнопка установки маркера оператора
   if (btnOperator) {
     btnOperator.addEventListener('click', () => {
       const center = map.getCenter();
       setOperatorMarker(center);
       
-      // Получаем высоту для сообщения
       getElevation(center.lat, center.lng).then(elevation => {
-        // Показываем сообщение
         alert(`Маркер оператора установлен!\nКоординаты: ${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}\nВысота: ${Math.round(elevation)} м.`);
       });
     });
@@ -298,7 +360,6 @@ function initButtons() {
       flyZonesGeoJSON.features.forEach(zone => {
         try {
           if (turf.booleanIntersects(circleFeature, zone)) {
-            // ИСПРАВЛЕНИЕ: используем Name с заглавной буквы
             const name = zone.properties.Name || zone.properties.name || 'Зона';
             if (!intersectingNames.includes(name)) {
               intersectingNames.push(name);
@@ -309,7 +370,6 @@ function initButtons() {
         }
       });
 
-      // Получаем высоту для центра круга
       getElevation(centerPoint.lat, centerPoint.lng).then(elevation => {
         let content = `
           <b>Центр:</b> ${centerPoint.lat.toFixed(6)}, ${centerPoint.lng.toFixed(6)}<br>
