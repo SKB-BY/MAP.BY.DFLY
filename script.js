@@ -50,6 +50,18 @@ function getZoneStyle(name) {
       color: '#cc0000',    // Темно-красный контур
       fillColor: '#ff0000' // Красная заливка
     };
+  } else if (name.startsWith('ARD_')) {
+    return {
+      ...baseStyle,
+      color: '#666666',    // Темно-серый контур
+      fillColor: '#c8c8c8' // Светло-серовая заливка
+    };
+  } else if (name.startsWith('ARZ_')) {
+    return {
+      ...baseStyle,
+      color: '#666666',    // Темно-серый контур
+      fillColor: '#c8c8c8' // Светло-серовая заливка
+    };
   } else {
     return {
       ...baseStyle,
@@ -135,16 +147,24 @@ function loadZones() {
       // Создаем слой с динамической стилизацией
       flyZonesLayer = L.geoJSON(geojson, {
         onEachFeature: (feature, layer) => {
-          const name = feature.properties.name || 'Зона';
+          // ИСПРАВЛЕНИЕ: используем Name с заглавной буквы
+          const name = feature.properties.Name || feature.properties.name || 'Зона';
           const description = feature.properties.description || '';
           layer.bindPopup(`<b>${name}</b><br>${description}`);
         },
         style: function(feature) {
-          return getZoneStyle(feature.properties.name);
+          // ИСПРАВЛЕНИЕ: используем Name с заглавной буквы
+          const name = feature.properties.Name || feature.properties.name;
+          return getZoneStyle(name);
         }
       }).addTo(map);
       
       console.log('✅ GeoJSON загружен. Объектов:', geojson.features.length);
+      // Добавим отладочную информацию
+      if (geojson.features.length > 0) {
+        console.log('🔍 Пример свойств первого объекта:', geojson.features[0].properties);
+        console.log('🔍 Имя зоны:', geojson.features[0].properties.Name || geojson.features[0].properties.name);
+      }
     })
     .catch(err => {
       console.error('❌ Ошибка загрузки GeoJSON:', err);
@@ -191,7 +211,8 @@ function initButtons() {
       flyZonesGeoJSON.features.forEach(zone => {
         try {
           if (turf.booleanIntersects(circleFeature, zone)) {
-            const name = zone.properties.name || 'Зона';
+            // ИСПРАВЛЕНИЕ: используем Name с заглавной буквы
+            const name = zone.properties.Name || zone.properties.name || 'Зона';
             if (!intersectingNames.includes(name)) {
               intersectingNames.push(name);
             }
