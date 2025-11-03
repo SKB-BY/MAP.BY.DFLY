@@ -13,6 +13,7 @@ let elevationCache = {};
 let lastElevationRequest = 0;
 const ELEVATION_REQUEST_DELAY = 1000;
 let pendingElevationRequest = null;
+let isTrackingCenter = true; // Флаг для отслеживания центра карты
 
 function getZoneStyle(name) {
   const baseStyle = {
@@ -128,7 +129,6 @@ function getApproximateElevation(lat, lng) {
 }
 
 function initCoordinatesDisplay() {
-  // Создаем кастомный элемент вместо Leaflet Control
   coordinatesDisplay = document.createElement('div');
   coordinatesDisplay.className = 'coordinates-display';
   coordinatesDisplay.innerHTML = `
@@ -152,27 +152,35 @@ function updateCoordinatesDisplay(coords, elevation = 0) {
   `;
 }
 
-// Функция для обновления координат центра карты
-async function updateCenterCoordinates() {
+// Обновление координат центра карты
+function updateCenterCoordinates() {
   if (!coordinatesDisplay || !map) return;
   
   const center = map.getCenter();
-  const elevation = await getElevation(center.lat, center.lng);
-  updateCoordinatesDisplay([center.lat, center.lng], elevation);
+  getElevation(center.lat, center.lng).then(elevation => {
+    updateCoordinatesDisplay([center.lat, center.lng], elevation);
+  });
 }
 
-// Функция для обновления координат при движении курсора
-async function updateCursorCoordinates(e) {
-  if (updateTimeout) {
-    clearTimeout(updateTimeout);
+// Обновление координат при движении курсора
+let cursorUpdateTimeout = null;
+function updateCursorCoordinates(e) {
+  if (cursorUpdateTimeout) {
+    clearTimeout(cursorUpdateTimeout);
   }
   
-  updateTimeout = setTimeout(async () => {
-    if (coordinatesDisplay) {
-      const elevation = await getElevation(e.latlng.lat, e.latlng.lng);
+  cursorUpdateTimeout = setTimeout(() => {
+    isTrackingCenter = false;
+    getElevation(e.latlng.lat, e.latlng.lng).then(elevation => {
       updateCoordinatesDisplay([e.latlng.lat, e.latlng.lng], elevation);
-    }
-  }, 200);
+    });
+  }, 100);
+}
+
+// Возврат к отслеживанию центра при уходе курсора
+function resetToCenterTracking() {
+  isTrackingCenter = true;
+  updateCenterCoordinates();
 }
 
 function initMap() {
@@ -204,21 +212,31 @@ function initMap() {
 
   osm.addTo(map);
 
-  // Инициализация кастомного отображения координат
   initCoordinatesDisplay();
 
-  // Обновляем координаты при перемещении карты
-  map.on('moveend', updateCenterCoordinates);
-  map.on('zoomend', updateCenterCoordinates);
+  // События для отслеживания центра карты
+  map.on('moveend', () => {
+    if (isTrackingCenter) {
+      updateCenterCoordinates();
+    }
+  });
   
-  // Также обновляем при движении курсора
+  map.on('zoomend', () => {
+    if (isTrackingCenter) {
+      updateCenterCoordinates();
+    }
+  });
+
+  // События для отслеживания курсора
   map.on('mousemove', updateCursorCoordinates);
+  map.on('mouseout', resetToCenterTracking);
 
   if (isMobile) {
     map.on('touchmove', updateCursorCoordinates);
+    map.on('touchend', resetToCenterTracking);
   }
 
-  // Первоначальное обновление координат центра
+  // Первоначальное обновление
   updateCenterCoordinates();
 
   loadZones();
@@ -293,7 +311,7 @@ function initButtons() {
         timeout: 10000
       });
       
-      map.on('locationfound', function(e) {
+      map.once('locationfound', function(e) {
         if (btnOperator) {
           btnOperator.style.display = 'block';
         }
@@ -302,13 +320,14 @@ function initButtons() {
           .bindPopup("Ваше местоположение")
           .openPopup();
           
-        // Обновляем координаты после перемещения к местоположению
+        // Обновляем координаты после перемещения
         setTimeout(() => {
+          isTrackingCenter = true;
           updateCenterCoordinates();
-        }, 500);
+        }, 1000);
       });
       
-      map.on('locationerror', function(e) {
+      map.once('locationerror', function(e) {
         alert('Не удалось определить местоположение. Проверьте настройки GPS.');
       });
     });
