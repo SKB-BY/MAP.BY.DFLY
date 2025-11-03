@@ -2,6 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; script-src 'self' 'unsafe-eval' https://unpkg.com https://telegram.org; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: https:; connect-src 'self' https:;">
   <title>Р-БЛА</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -14,11 +15,12 @@
   <div id="control-panel">
     <button id="btn-rbla">Р-БЛА</button>
     <button id="btn-gps">GPS</button>
+    <button id="btn-operator" style="display: none;">Маркер-О</button>
     <button id="btn-calculate" style="display: none;">Рассчитать</button>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/@turf/turf@7/turf.min.js"></script>
+  <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
