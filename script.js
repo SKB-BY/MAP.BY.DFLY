@@ -8,52 +8,52 @@ let tempLabel = null;
 let tempCircle = null;
 let radiusMeters = null;
 
-function getZoneStyle(name) {
+function getZoneStyle(zoneName) {
   // Базовые стили для всех зон
   const baseStyle = {
     weight: 2,
     opacity: 0.9,     // Прозрачность контура
-    fillOpacity: 0.3  // Прозрачность заливки (увеличена для лучшей видимости)
+    fillOpacity: 0.3  // Прозрачность заливки
   };
 
-  if (!name) {
+  if (!zoneName) {
     return {
       ...baseStyle,
-      color: '#ff0000',    // Красный контур
-      fillColor: '#ff0000' // Красная заливка
+      color: '#ff0000',
+      fillColor: '#ff0000'
     };
   }
 
   // Определяем цвета в зависимости от типа зоны
-  if (name.startsWith('UMU_')) {
+  if (zoneName.startsWith('UMU_')) {
     return {
       ...baseStyle,
-      color: '#800080',    // Темно-фиолетовый контур
-      fillColor: '#800080' // Фиолетовая заливка
+      color: '#800080',
+      fillColor: '#800080'
     };
-  } else if (name.startsWith('UMD_')) {
+  } else if (zoneName.startsWith('UMD_')) {
     return {
       ...baseStyle,
-      color: '#654321',    // Темно-коричневый контур
-      fillColor: '#b57e54' // Светло-коричневая заливка
+      color: '#654321',
+      fillColor: '#b57e54'
     };
-  } else if (name.startsWith('UMP_')) {
+  } else if (zoneName.startsWith('UMP_')) {
     return {
       ...baseStyle,
-      color: '#cc8400',    // Темно-оранжевый контур
-      fillColor: '#ffa500' // Оранжевая заливка
+      color: '#cc8400',
+      fillColor: '#ffa500'
     };
-  } else if (name.startsWith('UMR_')) {
+  } else if (zoneName.startsWith('UMR_')) {
     return {
       ...baseStyle,
-      color: '#cc0000',    // Темно-красный контур
-      fillColor: '#ff0000' // Красная заливка
+      color: '#cc0000',
+      fillColor: '#ff0000'
     };
   } else {
     return {
       ...baseStyle,
-      color: '#cc0000',    // Контур по умолчанию
-      fillColor: '#ff0000' // Заливка по умолчанию
+      color: '#cc0000',
+      fillColor: '#ff0000'
     };
   }
 }
@@ -97,20 +97,23 @@ function loadZones() {
       // Создаем слой с динамической стилизацией
       flyZonesLayer = L.geoJSON(geojson, {
         onEachFeature: (feature, layer) => {
-          const name = feature.properties.name || 'Зона';
+          // ИСПРАВЛЕНИЕ: используем "Name" вместо "name"
+          const name = feature.properties.Name || 'Зона';
           const description = feature.properties.description || '';
           layer.bindPopup(`<b>${name}</b><br>${description}`);
         },
         style: function(feature) {
-          return getZoneStyle(feature.properties.name);
+          // ИСПРАВЛЕНИЕ: используем "Name" вместо "name"
+          return getZoneStyle(feature.properties.Name);
         }
       }).addTo(map);
       
       console.log('✅ GeoJSON загружен. Объектов:', geojson.features.length);
+      console.log('✅ Пример свойств первого объекта:', geojson.features[0]?.properties);
     })
     .catch(err => {
       console.error('❌ Ошибка загрузки GeoJSON:', err);
-      alert('⚠️ Не удалось загрузить зоны полёта. Проверьте файл Fly_Zones_BY.geojson.');
+      alert('⚠️ Не удалось загрузить зоны ограничений. Проверьте файл Fly_Zones_BY.geojson.');
     });
 }
 
@@ -153,7 +156,8 @@ function initButtons() {
       flyZonesGeoJSON.features.forEach(zone => {
         try {
           if (turf.booleanIntersects(circleFeature, zone)) {
-            const name = zone.properties.name || 'Зона';
+            // ИСПРАВЛЕНИЕ: используем "Name" вместо "name"
+            const name = zone.properties.Name || 'Зона';
             if (!intersectingNames.includes(name)) {
               intersectingNames.push(name);
             }
@@ -222,7 +226,9 @@ function finishRadius(e) {
   tempCircle = L.circle(centerPoint, {
     radius: radiusMeters,
     color: 'red',
-    fillOpacity: 0.2
+    fillColor: 'red',
+    fillOpacity: 0.2,
+    opacity: 0.7
   }).addTo(map);
 
   const btnCalculate = document.getElementById('btn-calculate');
