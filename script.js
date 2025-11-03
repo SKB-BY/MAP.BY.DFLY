@@ -168,7 +168,7 @@ function loadZones() {
     })
     .catch(err => {
       console.error('❌ Ошибка загрузки GeoJSON:', err);
-      alert('⚠️ Не удалось загрузить зоны полёта. Проверьте файл Fly_Zones_BY.geojson.');
+      alert('⚠️ Не удалось загрузить зоны. Проверьте файл Fly_Zones_BY.geojson.');
     });
 }
 
@@ -179,7 +179,7 @@ function initButtons() {
 
   if (btnGps) {
     btnGps.addEventListener('click', () => {
-      map.locate({ setView: true, maxZoom: 16 });
+      map.locate({ setView: true, maxZoom: 21 });
     });
   }
 
