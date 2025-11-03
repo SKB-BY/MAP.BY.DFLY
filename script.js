@@ -25,41 +25,29 @@ function getZoneStyle(name) {
   }
 
   // Определяем цвета в зависимости от типа зоны
-  if (name.startsWith('UMU_')) {
+  if (name.startsWith("UMU_")) {
     return {
       ...baseStyle,
       color: '#800080',    // Темно-фиолетовый контур
       fillColor: '#800080' // Фиолетовая заливка
     };
-  } else if (name.startsWith('UMD_')) {
+  } else if (name.startsWith("UMD_")) {
     return {
       ...baseStyle,
       color: '#654321',    // Темно-коричневый контур
       fillColor: '#b57e54' // Светло-коричневая заливка
     };
-  } else if (name.startsWith('UMP_')) {
+  } else if (name.startsWith("UMP_")) {
     return {
       ...baseStyle,
       color: '#cc8400',    // Темно-оранжевый контур
       fillColor: '#ffa500' // Оранжевая заливка
     };
-  } else if (name.startsWith('UMR_')) {
+  } else if (name.startsWith("UMR_")) {
     return {
       ...baseStyle,
       color: '#cc0000',    // Темно-красный контур
       fillColor: '#ff0000' // Красная заливка
-    };
-  } else if (name.startsWith('ARD_')) {
-    return {
-      ...baseStyle,
-      color: '#666666',    // Темно-серый контур
-      fillColor: '#c8c8c8' // Светло-серовая заливка
-    };
-  } else if (name.startsWith('ARZ_')) {
-    return {
-      ...baseStyle,
-      color: '#666666',    // Темно-серый контур
-      fillColor: '#c8c8c8' // Светло-серовая заливка
     };
   } else {
     return {
