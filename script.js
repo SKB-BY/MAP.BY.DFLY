@@ -22,7 +22,7 @@ let routeLine = null;
 let zoneLayers = {};
 const ZONE_PREFIXES = ["RB", "MIL", "UMU", "UMP", "UMD", "UMR", "ARD", "ARZ"];
 
-// === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (без изменений) ===
+// === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
 function getZoneStyle(feature) {
   const name = feature.properties?.Name || feature.properties?.name || '';
   const baseStyle = { weight: 2, opacity: 0.9, fillOpacity: 0.3 };
@@ -197,19 +197,30 @@ function loadZones() {
     });
 }
 
-// === ПРОВЕРКА ПЕРЕСЕЧЕНИЙ ===
+// === ПРОВЕРКА ПЕРЕСЕЧЕНИЙ (ТОЧНАЯ) ===
 function checkIntersectionsForGeometry(points, isPolygon = false) {
   if (!flyZonesGeoJSON) return [];
   const intersectingNames = [];
 
   flyZonesGeoJSON.features.forEach(feature => {
-    const bounds = L.geoJSON(feature).getBounds();
+    const zoneGeom = L.geoJSON(feature);
     let intersects = false;
 
-    for (let pt of points) {
-      if (bounds.contains(pt)) {
-        intersects = true;
-        break;
+    if (isPolygon && points.length >= 3) {
+      // Для полигона: проверяем каждую точку
+      for (let pt of points) {
+        if (zoneGeom.getBounds().contains(pt)) {
+          intersects = true;
+          break;
+        }
+      }
+    } else {
+      // Для линии или точки: проверяем каждую точку
+      for (let pt of points) {
+        if (zoneGeom.getBounds().contains(pt)) {
+          intersects = true;
+          break;
+        }
       }
     }
 
@@ -219,6 +230,7 @@ function checkIntersectionsForGeometry(points, isPolygon = false) {
         intersectingNames.push(name);
       }
     }
+    zoneGeom.remove();
   });
 
   return intersectingNames;
@@ -248,33 +260,30 @@ function setOperatorMarker(latlng) {
 function initButtons() {
   const panel = document.getElementById('control-panel');
 
-  // === КНОПКА "ПЛАН" С ВЫПАДАЮЩИМ МЕНЮ ВВЕРХ ===
-  const planContainer = document.createElement('div');
-  planContainer.className = 'plan-split';
-  planContainer.innerHTML = `
-    <button class="plan-main-btn">План</button>
-    <button class="plan-arrow-btn">▼</button>
-    <div class="plan-dropdown-menu">
-      <a href="#" data-mode="rbla">Р-БЛА</a>
-      <a href="#" data-mode="mbla">М-БЛА</a>
-      <a href="#" data-mode="pbla">П-БЛА</a>
-    </div>
+  // === КНОПКА "ПЛАН" С ВЫПАДАЮЩИМ МЕНЮ ВНИЗ ===
+  const planBtn = document.createElement('button');
+  planBtn.className = 'plan-btn';
+  planBtn.textContent = 'План';
+  panel.insertBefore(planBtn, panel.firstChild);
+
+  const dropdown = document.createElement('div');
+  dropdown.className = 'plan-dropdown-menu';
+  dropdown.innerHTML = `
+    <a href="#" data-mode="rbla">Р-БЛА</a>
+    <a href="#" data-mode="mbla">М-БЛА</a>
+    <a href="#" data-mode="pbla">П-БЛА</a>
   `;
-  panel.insertBefore(planContainer, panel.firstChild);
+  panel.insertBefore(dropdown, planBtn.nextSibling);
 
-  const arrowBtn = planContainer.querySelector('.plan-arrow-btn');
-  const dropdown = planContainer.querySelector('.plan-dropdown-menu');
-
-  arrowBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    planContainer.classList.toggle('active');
+  planBtn.addEventListener('click', () => {
+    planBtn.classList.toggle('active');
   });
 
   dropdown.addEventListener('click', (e) => {
     if (e.target.tagName === 'A') {
       e.preventDefault();
       const mode = e.target.dataset.mode;
-      planContainer.classList.remove('active');
+      planBtn.classList.remove('active');
       if (mode === 'rbla') activateRBLA();
       else if (mode === 'mbla') activateMBLA();
       else if (mode === 'pbla') activatePBLA();
@@ -282,8 +291,10 @@ function initButtons() {
   });
 
   // Закрытие меню при клике вне
-  document.addEventListener('click', () => {
-    planContainer.classList.remove('active');
+  document.addEventListener('click', (e) => {
+    if (!planBtn.contains(e.target) && !dropdown.contains(e.target)) {
+      planBtn.classList.remove('active');
+    }
   });
 
   // === ОСТАЛЬНЫЕ КНОПКИ ===
@@ -322,7 +333,7 @@ function enterMode(mode) {
     return false;
   }
   currentMode = mode;
-  document.querySelectorAll('.plan-main-btn, .plan-arrow-btn').forEach(b => b.disabled = true);
+  document.getElementById('btn-plan').disabled = true;
   document.getElementById('btn-cancel').style.display = 'block';
   return true;
 }
@@ -336,7 +347,7 @@ function exitMode() {
   routePoints = [];
   routeMarkers = [];
   currentMode = null;
-  document.querySelectorAll('.plan-main-btn, .plan-arrow-btn').forEach(b => b.disabled = false);
+  document.getElementById('btn-plan').disabled = false;
   document.getElementById('btn-cancel').style.display = 'none';
   document.getElementById('btn-finish').style.display = 'none';
   map.dragging.enable();
@@ -405,20 +416,29 @@ function finishRadius(e) {
   if (intersects.length > 0) content += `<b>Пересекает зоны:</b><br>• ${intersects.join('<br>• ')}`;
   else content += `<b>Пересечений нет</b>`;
   tempCircle.bindPopup(content).openPopup();
+
   exitMode();
 }
 
 function finishMBLA() {
   if (routePoints.length < 2) { alert('Минимум 2 точки'); exitMode(); return; }
   const intersects = checkIntersectionsForGeometry(routePoints, false);
+  let avgElevation = 0;
+  for (let pt of routePoints) {
+    avgElevation += getElevation(pt.lat, pt.lng);
+  }
+  avgElevation /= routePoints.length;
+
   let content = `<b>М-БЛА</b><br><b>Точек:</b> ${routePoints.length}<br>`;
   if (intersects.length > 0) content += `<b>Пересекает зоны:</b><br>• ${intersects.join('<br>• ')}`;
   else content += `<b>Пересечений нет</b>`;
+  content += `<br><b>Средняя высота:</b> ${Math.round(avgElevation)} м.`;
   L.popup().setLatLng(routePoints[0]).setContent(content).openOn(map);
+  // Линия и маркеры остаются на карте
   document.getElementById('btn-finish').style.display = 'none';
   document.getElementById('btn-cancel').style.display = 'none';
-  document.querySelectorAll('.plan-main-btn, .plan-arrow-btn').forEach(b => b.disabled = false);
   currentMode = null;
+  document.getElementById('btn-plan').disabled = false;
 }
 
 function finishPBLA() {
@@ -426,16 +446,25 @@ function finishPBLA() {
   const closed = [...routePoints, routePoints[0]];
   const poly = L.polygon(closed, { color: 'green', fillOpacity: 0.2 }).addTo(map);
   const intersects = checkIntersectionsForGeometry(routePoints, true);
+  let avgElevation = 0;
+  for (let pt of routePoints) {
+    avgElevation += getElevation(pt.lat, pt.lng);
+  }
+  avgElevation /= routePoints.length;
+
   let content = `<b>П-БЛА</b><br><b>Точек:</b> ${routePoints.length}<br>`;
   if (intersects.length > 0) content += `<b>Пересекает зоны:</b><br>• ${intersects.join('<br>• ')}`;
   else content += `<b>Пересечений нет</b>`;
+  content += `<br><b>Средняя высота:</b> ${Math.round(avgElevation)} м.`;
   poly.bindPopup(content).openPopup();
+  // Полигон остаётся на карте
   document.getElementById('btn-finish').style.display = 'none';
   document.getElementById('btn-cancel').style.display = 'none';
-  document.querySelectorAll('.plan-main-btn, .plan-arrow-btn').forEach(b => b.disabled = false);
   currentMode = null;
+  document.getElementById('btn-plan').disabled = false;
 }
 
+// === ВРЕМЕННЫЕ ЛИНИИ Р-БЛА ===
 function drawTempLine(e) {
   if (currentMode !== 'rbla' || !centerPoint) return;
   const distance = map.distance(centerPoint, e.latlng);
