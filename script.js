@@ -1,11 +1,5 @@
 let map;
 let flyZonesGeoJSON = null;
-let rblaMode = false;
-let centerPoint = null;
-let tempLine = null;
-let tempLabel = null;
-let tempCircle = null;
-let radiusMeters = null;
 let coordinatesDisplay = null;
 let operatorMarker = null;
 let elevationCache = {};
@@ -18,12 +12,17 @@ let isTrackingCenter = true;
 let currentMode = null; // 'rbla', 'mbla', 'pbla'
 let routePoints = [];
 let routeLine = null;
+let tempCircle = null;
+let tempLine = null;
+let tempLabel = null;
+let centerPoint = null;
+let radiusMeters = null;
 
 // Зоны
 let zoneLayers = {};
 const ZONE_PREFIXES = ["RB", "MIL", "UMU", "UMP", "UMD", "UMR", "ARD", "ARZ"];
 
-// === СТИЛЬ ЗОН ===
+// === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
 function getZoneStyle(feature) {
   const name = feature.properties?.Name || feature.properties?.name || '';
   const baseStyle = { weight: 2, opacity: 0.9, fillOpacity: 0.3 };
@@ -35,7 +34,6 @@ function getZoneStyle(feature) {
   else return { ...baseStyle, color: '#cc0000', fillColor: '#ff0000' };
 }
 
-// === ВЫСОТА ===
 async function getElevation(lat, lng) {
   const cacheKey = `${lat.toFixed(3)},${lng.toFixed(3)}`;
   if (elevationCache[cacheKey] !== undefined) return elevationCache[cacheKey];
@@ -73,7 +71,6 @@ function getApproximateElevation(lat, lng) {
   return Math.max(100, baseHeight + variation);
 }
 
-// === КООРДИНАТЫ ===
 function initCoordinatesDisplay() {
   coordinatesDisplay = document.createElement('div');
   coordinatesDisplay.className = 'coordinates-display';
@@ -200,7 +197,7 @@ function loadZones() {
     });
 }
 
-// === ПРОВЕРКА ПЕРЕСЕЧЕНИЙ (общая) ===
+// === ПРОВЕРКА ПЕРЕСЕЧЕНИЙ ===
 function checkIntersectionsForGeometry(points, isPolygon = false) {
   if (!flyZonesGeoJSON) return [];
   const intersectingNames = [];
@@ -211,13 +208,11 @@ function checkIntersectionsForGeometry(points, isPolygon = false) {
     let intersects = false;
 
     if (isPolygon && points.length >= 3) {
-      // Упрощённая проверка: если центр зоны внутри bounding box полигона
       const polyBounds = L.polygon(points).getBounds();
       if (polyBounds.overlaps(zoneBounds)) {
         intersects = true;
       }
     } else {
-      // Для линии: проверяем каждую точку + буфер 10 м
       for (let pt of points) {
         const d = map.distance(pt, zoneBounds.getCenter());
         const zoneRad = map.distance(zoneBounds.getNorthWest(), zoneBounds.getSouthEast()) / 2;
@@ -260,23 +255,75 @@ function setOperatorMarker(latlng) {
   });
 }
 
+// === УПРАВЛЕНИЕ РЕЖИМОМ ===
+function enterMode(mode) {
+  if (currentMode) {
+    alert('Сначала завершите или отмените текущий режим');
+    return false;
+  }
+  currentMode = mode;
+  document.getElementById('btn-plan').disabled = true;
+  document.getElementById('btn-cancel').style.display = 'block';
+  document.getElementById('plan-dropdown').classList.remove('active');
+  return true;
+}
+
+function exitMode() {
+  if (tempLine) map.removeLayer(tempLine);
+  if (tempLabel) map.removeLayer(tempLabel);
+  if (tempCircle) map.removeLayer(tempCircle);
+  if (routeLine) map.removeLayer(routeLine);
+  routePoints = [];
+  currentMode = null;
+  document.getElementById('btn-plan').disabled = false;
+  document.getElementById('btn-cancel').style.display = 'none';
+  document.getElementById('btn-finish').style.display = 'none';
+  map.dragging.enable();
+  map.off('click', addRoutePoint);
+  map.off('mousemove', drawTempLine);
+}
+
 // === КНОПКИ ===
 function initButtons() {
   const btnPlan = document.getElementById('btn-plan');
   const btnGps = document.getElementById('btn-gps');
   const btnOperator = document.getElementById('btn-operator');
   const btnFinish = document.getElementById('btn-finish');
+  const btnCancel = document.getElementById('btn-cancel');
+
+  // Выпадающее меню
+  const dropdown = document.createElement('div');
+  dropdown.id = 'plan-dropdown';
+  dropdown.className = 'plan-dropdown';
+  dropdown.innerHTML = `
+    <button class="rbla" data-mode="rbla">Р-БЛА</button>
+    <button class="mbla" data-mode="mbla">М-БЛА</button>
+    <button class="pbla" data-mode="pbla">П-БЛА</button>
+  `;
+  document.body.appendChild(dropdown);
 
   btnPlan.addEventListener('click', () => {
-    const choice = prompt('Выберите режим:\n1 — Р-БЛА (радиус)\n2 — М-БЛА (маршрут)\n3 — П-БЛА (полигон)', '1');
-    if (!choice) return;
-
-    if (choice === '1') activateRBLA();
-    else if (choice === '2') activateMBLA();
-    else if (choice === '3') activatePBLA();
-    else alert('Неверный выбор');
+    dropdown.classList.toggle('active');
   });
 
+  dropdown.addEventListener('click', (e) => {
+    if (e.target.tagName === 'BUTTON') {
+      const mode = e.target.dataset.mode;
+      dropdown.classList.remove('active');
+      if (mode === 'rbla') activateRBLA();
+      else if (mode === 'mbla') activateMBLA();
+      else if (mode === 'pbla') activatePBLA();
+    }
+  });
+
+  // Закрытие меню при клике вне его
+  document.addEventListener('click', (e) => {
+    if (!btnPlan.contains(e.target) && !dropdown.contains(e.target)) {
+      dropdown.classList.remove('active');
+    }
+  });
+
+  // GPS
   btnGps.addEventListener('click', () => {
     map.locate({ setView: true, maxZoom: 16, enableHighAccuracy: true, timeout: 10000 });
     map.once('locationfound', e => {
@@ -287,6 +334,7 @@ function initButtons() {
     map.once('locationerror', () => alert('Не удалось определить местоположение.'));
   });
 
+  // Маркер-О
   btnOperator.addEventListener('click', () => {
     const center = map.getCenter();
     setOperatorMarker(center);
@@ -295,50 +343,46 @@ function initButtons() {
     });
   });
 
+  // Завершить
   btnFinish.addEventListener('click', () => {
     if (currentMode === 'mbla') finishMBLA();
     else if (currentMode === 'pbla') finishPBLA();
+  });
+
+  // Отмена
+  btnCancel.addEventListener('click', () => {
+    exitMode();
   });
 }
 
 // === РЕЖИМЫ ===
 function activateRBLA() {
-  if (currentMode) { alert('Сначала завершите текущий режим'); return; }
-  currentMode = 'rbla';
-  document.getElementById('btn-plan').disabled = true;
-  rblaMode = true;
+  if (!enterMode('rbla')) return;
   centerPoint = map.getCenter();
   map.dragging.disable();
   map.on('mousemove', drawTempLine);
   map.once('click', (e) => {
     finishRadius(e);
-    currentMode = null;
-    document.getElementById('btn-plan').disabled = false;
   });
 }
 
 function activateMBLA() {
-  if (currentMode) { alert('Сначала завершите текущий режим'); return; }
-  currentMode = 'mbla';
+  if (!enterMode('mbla')) return;
   routePoints = [];
   document.getElementById('btn-finish').style.display = 'block';
   map.on('click', addRoutePoint);
-  alert('Укажите точки маршрута. Нажмите "Завершить" для расчёта.');
 }
 
 function activatePBLA() {
-  if (currentMode) { alert('Сначала завершите текущий режим'); return; }
-  currentMode = 'pbla';
+  if (!enterMode('pbla')) return;
   routePoints = [];
   document.getElementById('btn-finish').style.display = 'block';
   map.on('click', addRoutePoint);
-  alert('Укажите точки полигона. Нажмите "Завершить" для замыкания.');
 }
 
 function addRoutePoint(e) {
-  if (!currentMode || currentMode === 'rbla') return;
+  if (!currentMode) return;
   routePoints.push(e.latlng);
-
   if (routeLine) map.removeLayer(routeLine);
   routeLine = L.polyline(routePoints, {
     color: currentMode === 'mbla' ? '#4169e1' : 'green',
@@ -351,7 +395,7 @@ function addRoutePoint(e) {
 function finishRadius(e) {
   const distance = map.distance(centerPoint, e.latlng);
   if (isNaN(distance)) {
-    resetRBLA();
+    exitMode();
     return;
   }
   radiusMeters = Math.ceil(distance / 50) * 50;
@@ -366,21 +410,21 @@ function finishRadius(e) {
   else content += `<b>Пересечений нет</b>`;
   tempCircle.bindPopup(content).openPopup();
 
-  resetRBLA();
+  exitMode();
 }
 
 function finishMBLA() {
-  if (routePoints.length < 2) { alert('Минимум 2 точки'); return; }
+  if (routePoints.length < 2) { alert('Минимум 2 точки'); exitMode(); return; }
   const intersects = checkIntersectionsForGeometry(routePoints, false);
   let content = `<b>М-БЛА</b><br><b>Точек:</b> ${routePoints.length}<br>`;
   if (intersects.length > 0) content += `<b>Пересекает зоны:</b><br>• ${intersects.join('<br>• ')}`;
   else content += `<b>Пересечений нет</b>`;
   L.popup().setLatLng(routePoints[0]).setContent(content).openOn(map);
-  cleanupRoute();
+  exitMode();
 }
 
 function finishPBLA() {
-  if (routePoints.length < 3) { alert('Минимум 3 точки'); return; }
+  if (routePoints.length < 3) { alert('Минимум 3 точки'); exitMode(); return; }
   const closed = [...routePoints, routePoints[0]];
   const poly = L.polygon(closed, { color: 'green', fillOpacity: 0.2 }).addTo(map);
   const intersects = checkIntersectionsForGeometry(routePoints, true);
@@ -388,28 +432,12 @@ function finishPBLA() {
   if (intersects.length > 0) content += `<b>Пересекает зоны:</b><br>• ${intersects.join('<br>• ')}`;
   else content += `<b>Пересечений нет</b>`;
   poly.bindPopup(content).openPopup();
-  cleanupRoute();
+  exitMode();
 }
 
-function cleanupRoute() {
-  if (routeLine) map.removeLayer(routeLine);
-  routePoints = [];
-  currentMode = null;
-  document.getElementById('btn-finish').style.display = 'none';
-  map.off('click', addRoutePoint);
-}
-
-function resetRBLA() {
-  rblaMode = false;
-  if (tempLine) map.removeLayer(tempLine);
-  if (tempLabel) map.removeLayer(tempLabel);
-  map.dragging.enable();
-  map.off('mousemove', drawTempLine);
-}
-
-// === ЛИНИИ ДЛЯ Р-БЛА ===
+// === ВРЕМЕННЫЕ ЛИНИИ Р-БЛА ===
 function drawTempLine(e) {
-  if (!rblaMode || !centerPoint) return;
+  if (currentMode !== 'rbla' || !centerPoint) return;
   const distance = map.distance(centerPoint, e.latlng);
   if (isNaN(distance)) return;
   if (tempLine) map.removeLayer(tempLine);
@@ -461,7 +489,7 @@ function createZoneToggleControl() {
   document.body.appendChild(container);
 }
 
-// === СТАРТ ===
+// === ЗАПУСК ===
 document.addEventListener('DOMContentLoaded', () => {
   initMap();
 });
