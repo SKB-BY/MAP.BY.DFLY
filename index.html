@@ -3,13 +3,27 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; script-src 'self' https://unpkg.com https://telegram.org; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: https:; connect-src 'self' https:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; script-src 'self' https://unpkg.com https://telegram.org; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' https:; connect-src 'self' https:;">
   <title>Р-БЛА</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="style.css" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
+  <!-- Боковое меню -->
+  <div id="sidebar">
+    <h3>Отображаемые зоны</h3>
+    <div id="zone-list"></div>
+    <button id="close-sidebar">&times;</button>
+  </div>
+
+  <!-- Основной оверлей -->
+  <div id="overlay" onclick="closeSidebar()"></div>
+
+  <!-- Кнопка открытия меню -->
+  <button id="menu-toggle">☰</button>
+
+  <!-- Карта и остальное -->
   <div id="map"></div>
   <div id="crosshair"></div>
   <div id="control-panel">
