@@ -121,7 +121,6 @@ html, body, #map {
   display: none;
 }
 
-/* ПОЛНОСТЬЮ ПЕРЕРАБОТАННЫЕ СТИЛИ ДЛЯ КООРДИНАТ */
 .coordinates-display {
   position: fixed !important;
   bottom: 10px;
@@ -140,7 +139,6 @@ html, body, #map {
   text-align: center;
   backdrop-filter: blur(4px);
   pointer-events: none;
-  /* Убираем все стили Leaflet */
   width: auto !important;
   height: auto !important;
   margin: 0 !important;
@@ -157,7 +155,6 @@ html, body, #map {
   font-size: 14px;
 }
 
-/* Адаптивность для мобильных */
 @media (max-width: 768px) {
   .coordinates-display {
     font-size: 13px;
@@ -186,12 +183,8 @@ html, body, #map {
   }
 }
 
-/* Убираем все возможные стили Leaflet для этого элемента */
+.leaflet-bottom .coordinates-display,
 .leaflet-control-container .coordinates-display {
-  display: none !important;
-}
-
-.leaflet-bottom .coordinates-display {
   display: none !important;
 }
 
