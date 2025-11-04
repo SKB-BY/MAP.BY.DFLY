@@ -1,5 +1,11 @@
 let map;
 let flyZonesGeoJSON = null;
+let rblaMode = false;
+let centerPoint = null;
+let tempLine = null;
+let tempLabel = null;
+let tempCircle = null;
+let radiusMeters = null;
 let coordinatesDisplay = null;
 let operatorMarker = null;
 let elevationCache = {};
@@ -12,11 +18,8 @@ let isTrackingCenter = true;
 let currentMode = null; // 'rbla', 'mbla', 'pbla'
 let routePoints = [];
 let routeLine = null;
-let tempCircle = null;
-let tempLine = null;
-let tempLabel = null;
-let centerPoint = null;
-let radiusMeters = null;
+let routeMarkers = []; // Для хранения маркеров маршрута
+let routeBuffer = null; // Для буфера 20 м (если понадобится)
 
 // Зоны
 let zoneLayers = {};
@@ -197,26 +200,27 @@ function loadZones() {
     });
 }
 
-// === ПРОВЕРКА ПЕРЕСЕЧЕНИЙ ===
+// === ПРОВЕРКА ПЕРЕСЕЧЕНИЙ (ТОЧНАЯ) ===
 function checkIntersectionsForGeometry(points, isPolygon = false) {
   if (!flyZonesGeoJSON) return [];
   const intersectingNames = [];
 
   flyZonesGeoJSON.features.forEach(feature => {
-    const tempLayer = L.geoJSON(feature);
-    const zoneBounds = tempLayer.getBounds();
+    const zoneGeom = L.geoJSON(feature);
     let intersects = false;
 
     if (isPolygon && points.length >= 3) {
-      const polyBounds = L.polygon(points).getBounds();
-      if (polyBounds.overlaps(zoneBounds)) {
-        intersects = true;
+      // Простая проверка: если любая точка полигона внутри зоны
+      for (let pt of points) {
+        if (zoneGeom.getBounds().contains(pt)) {
+          intersects = true;
+          break;
+        }
       }
     } else {
+      // Для линии или точки: проверяем каждую точку
       for (let pt of points) {
-        const d = map.distance(pt, zoneBounds.getCenter());
-        const zoneRad = map.distance(zoneBounds.getNorthWest(), zoneBounds.getSouthEast()) / 2;
-        if (d <= (10 + zoneRad)) {
+        if (zoneGeom.getBounds().contains(pt)) {
           intersects = true;
           break;
         }
@@ -229,7 +233,7 @@ function checkIntersectionsForGeometry(points, isPolygon = false) {
         intersectingNames.push(name);
       }
     }
-    tempLayer.remove();
+    zoneGeom.remove();
   });
 
   return intersectingNames;
@@ -264,7 +268,6 @@ function enterMode(mode) {
   currentMode = mode;
   document.getElementById('btn-plan').disabled = true;
   document.getElementById('btn-cancel').style.display = 'block';
-  document.getElementById('plan-dropdown').classList.remove('active');
   return true;
 }
 
@@ -273,7 +276,9 @@ function exitMode() {
   if (tempLabel) map.removeLayer(tempLabel);
   if (tempCircle) map.removeLayer(tempCircle);
   if (routeLine) map.removeLayer(routeLine);
+  routePoints.forEach(marker => marker.remove());
   routePoints = [];
+  routeMarkers = [];
   currentMode = null;
   document.getElementById('btn-plan').disabled = false;
   document.getElementById('btn-cancel').style.display = 'none';
@@ -291,35 +296,49 @@ function initButtons() {
   const btnFinish = document.getElementById('btn-finish');
   const btnCancel = document.getElementById('btn-cancel');
 
-  // Выпадающее меню
-  const dropdown = document.createElement('div');
-  dropdown.id = 'plan-dropdown';
-  dropdown.className = 'plan-dropdown';
-  dropdown.innerHTML = `
-    <button class="rbla" data-mode="rbla">Р-БЛА</button>
-    <button class="mbla" data-mode="mbla">М-БЛА</button>
-    <button class="pbla" data-mode="pbla">П-БЛА</button>
+  // Диалог выбора режима
+  const dialog = document.createElement('div');
+  dialog.className = 'mode-dialog';
+  dialog.innerHTML = `
+    <h3>Подтвердите действие</h3>
+    <p>Выберите режим:</p>
+    <p>1 — Р-БЛА (радиус)<br>2 — М-БЛА (маршрут)<br>3 — П-БЛА (полигон)</p>
+    <input type="text" id="mode-input" placeholder="Введите 1, 2 или 3" maxlength="1">
+    <div class="buttons">
+      <button class="cancel">Отмена</button>
+      <button class="ok">OK</button>
+    </div>
   `;
-  document.body.appendChild(dropdown);
+  document.body.appendChild(dialog);
 
   btnPlan.addEventListener('click', () => {
-    dropdown.classList.toggle('active');
+    dialog.style.display = 'block';
+    document.getElementById('mode-input').focus();
   });
 
-  dropdown.addEventListener('click', (e) => {
-    if (e.target.tagName === 'BUTTON') {
-      const mode = e.target.dataset.mode;
-      dropdown.classList.remove('active');
-      if (mode === 'rbla') activateRBLA();
-      else if (mode === 'mbla') activateMBLA();
-      else if (mode === 'pbla') activatePBLA();
+  dialog.querySelector('.cancel').addEventListener('click', () => {
+    dialog.style.display = 'none';
+  });
+
+  dialog.querySelector('.ok').addEventListener('click', () => {
+    const input = document.getElementById('mode-input').value.trim();
+    if (input === '1') {
+      activateRBLA();
+    } else if (input === '2') {
+      activateMBLA();
+    } else if (input === '3') {
+      activatePBLA();
+    } else {
+      alert('Неверный выбор. Введите 1, 2 или 3.');
+      return;
     }
+    dialog.style.display = 'none';
   });
 
-  // Закрытие меню при клике вне его
-  document.addEventListener('click', (e) => {
-    if (!btnPlan.contains(e.target) && !dropdown.contains(e.target)) {
-      dropdown.classList.remove('active');
+  // Закрытие диалога по Enter
+  document.getElementById('mode-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      dialog.querySelector('.ok').click();
     }
   });
 
@@ -358,6 +377,7 @@ function initButtons() {
 // === РЕЖИМЫ ===
 function activateRBLA() {
   if (!enterMode('rbla')) return;
+  rblaMode = true;
   centerPoint = map.getCenter();
   map.dragging.disable();
   map.on('mousemove', drawTempLine);
@@ -369,24 +389,39 @@ function activateRBLA() {
 function activateMBLA() {
   if (!enterMode('mbla')) return;
   routePoints = [];
+  routeMarkers = [];
   document.getElementById('btn-finish').style.display = 'block';
   map.on('click', addRoutePoint);
+  alert('Укажите точки маршрута. Первая — начало, последняя — конец. Нажмите "Завершить" для расчёта.');
 }
 
 function activatePBLA() {
   if (!enterMode('pbla')) return;
   routePoints = [];
+  routeMarkers = [];
   document.getElementById('btn-finish').style.display = 'block';
   map.on('click', addRoutePoint);
+  alert('Укажите вершины полигона. Нажмите "Завершить" для замыкания и расчёта.');
 }
 
 function addRoutePoint(e) {
-  if (!currentMode) return;
+  if (!currentMode || currentMode === 'rbla') return;
   routePoints.push(e.latlng);
+
+  // Добавляем маркер
+  const marker = L.circleMarker(e.latlng, {
+    color: currentMode === 'mbla' ? '#0000ff' : 'green',
+    radius: 6,
+    fillColor: currentMode === 'mbla' ? '#0000ff' : 'green',
+    fillOpacity: 0.8
+  }).addTo(map);
+  routeMarkers.push(marker);
+
+  // Обновляем линию
   if (routeLine) map.removeLayer(routeLine);
   routeLine = L.polyline(routePoints, {
-    color: currentMode === 'mbla' ? '#4169e1' : 'green',
-    weight: currentMode === 'mbla' ? 8 : 3,
+    color: currentMode === 'mbla' ? '#0000ff' : 'green',
+    weight: 3,
     opacity: 0.8
   }).addTo(map);
 }
@@ -420,7 +455,11 @@ function finishMBLA() {
   if (intersects.length > 0) content += `<b>Пересекает зоны:</b><br>• ${intersects.join('<br>• ')}`;
   else content += `<b>Пересечений нет</b>`;
   L.popup().setLatLng(routePoints[0]).setContent(content).openOn(map);
-  exitMode();
+  // Линия и маркеры остаются на карте
+  document.getElementById('btn-finish').style.display = 'none';
+  document.getElementById('btn-cancel').style.display = 'none';
+  currentMode = null;
+  document.getElementById('btn-plan').disabled = false;
 }
 
 function finishPBLA() {
@@ -432,7 +471,11 @@ function finishPBLA() {
   if (intersects.length > 0) content += `<b>Пересекает зоны:</b><br>• ${intersects.join('<br>• ')}`;
   else content += `<b>Пересечений нет</b>`;
   poly.bindPopup(content).openPopup();
-  exitMode();
+  // Полигон остаётся на карте
+  document.getElementById('btn-finish').style.display = 'none';
+  document.getElementById('btn-cancel').style.display = 'none';
+  currentMode = null;
+  document.getElementById('btn-plan').disabled = false;
 }
 
 // === ВРЕМЕННЫЕ ЛИНИИ Р-БЛА ===
