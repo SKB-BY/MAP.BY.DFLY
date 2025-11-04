@@ -58,51 +58,37 @@ html, body, #map {
   max-width: 95%;
 }
 
-/* === СТИЛЬ КНОПКИ "ПЛАН" С ВЫПАДАЮЩИМ МЕНЮ ВВЕРХ === */
-.plan-split {
-  display: inline-flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 0;
-  margin: 0;
-}
-
-.plan-main-btn {
-  padding: 12px 16px;
-  font-size: 16px;
+/* === КНОПКА "ПЛАН" С ВЫПАДАЮЩИМ МЕНЮ ВНИЗ === */
+.plan-btn {
+  position: relative;
+  display: inline-block;
+  background-color: #fff;
   border: none;
-  background: #fff;
-  color: #000;
-  font-weight: bold;
-  border-radius: 8px 0 0 8px;
+  border-radius: 8px;
   box-shadow: 0 3px 12px rgba(0,0,0,0.3);
   cursor: pointer;
   min-width: 80px;
-  flex: 1;
+  padding: 12px 16px;
+  font-size: 16px;
+  font-weight: bold;
+  text-align: center;
+  touch-action: manipulation;
 }
 
-.plan-arrow-btn {
-  padding: 12px 12px;
-  font-size: 16px;
-  border: none;
-  background: #fff;
-  color: #000;
-  border-radius: 0 8px 8px 0;
-  box-shadow: 0 3px 12px rgba(0,0,0,0.3);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.plan-btn::after {
+  content: '▼';
+  margin-left: 8px;
+  font-size: 14px;
 }
 
 .plan-dropdown-menu {
   display: none;
   position: absolute;
-  bottom: 100%; /* ВЫПАДАЕТ ВВЕРХ */
+  top: 100%;
   left: 0;
   background-color: #fff;
   min-width: 160px;
-  box-shadow: 0 -4px 12px rgba(0,0,0,0.25);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
   z-index: 1001;
   border-radius: 8px;
   overflow: hidden;
@@ -122,12 +108,12 @@ html, body, #map {
   background-color: #f0f0f0;
 }
 
-.plan-split.active .plan-dropdown-menu {
+.plan-btn.active .plan-dropdown-menu {
   display: block;
 }
 
 /* === ОСТАЛЬНЫЕ КНОПКИ === */
-#control-panel button:not(.plan-main-btn):not(.plan-arrow-btn) {
+#control-panel button:not(.plan-btn) {
   padding: 12px 16px;
   font-size: 16px;
   border: none;
@@ -165,7 +151,7 @@ html, body, #map {
     bottom: 60px;
     gap: 6px;
   }
-  .plan-main-btn, .plan-arrow-btn, #control-panel button {
+  .plan-btn, #control-panel button {
     padding: 14px 12px;
     font-size: 14px;
     min-width: 70px;
@@ -177,7 +163,7 @@ html, body, #map {
   #control-panel {
     bottom: 70px;
   }
-  .plan-main-btn, .plan-arrow-btn, #control-panel button {
+  .plan-btn, #control-panel button {
     padding: 12px 8px;
     font-size: 13px;
     min-width: 60px;
