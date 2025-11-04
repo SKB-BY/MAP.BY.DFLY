@@ -340,13 +340,15 @@ function resetRBLA() {
   map.off('mousemove', drawTempLine);
 }
 
-// === ИНИЦИАЛИЗАЦИЯ БОКОВОГО МЕНЮ ===
-function initSidebar() {
-  const list = document.getElementById('zone-list');
-  const toggle = document.getElementById('menu-toggle');
-  const closeBtn = document.getElementById('close-sidebar');
+function createZoneToggleControl() {
+  const btn = L.DomUtil.create('button', 'zone-toggle-btn');
+  btn.innerHTML = '⋮';
+  btn.title = 'Фильтр зон';
 
-  ZONE_PREFIXES.forEach(prefix => {
+  const menu = L.DomUtil.create('div', 'zone-menu-container');
+
+  // Заполняем чекбоксами
+  zonePrefixes.forEach(prefix => {
     const label = document.createElement('label');
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
@@ -357,13 +359,32 @@ function initSidebar() {
       else map.removeLayer(zoneLayers[prefix]);
     };
     label.appendChild(checkbox);
-    label.appendChild(document.createTextNode(' ' + prefix));
-    list.appendChild(label);
+    label.appendChild(document.createTextNode(prefix));
+    menu.appendChild(label);
   });
 
-  toggle?.addEventListener('click', openSidebar);
-  closeBtn?.addEventListener('click', closeSidebar);
-  document.getElementById('overlay')?.addEventListener('click', closeSidebar);
+  // Переключение видимости меню
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    menu.classList.toggle('active');
+  };
+
+  // Закрытие при клике вне меню
+  document.addEventListener('click', () => {
+    menu.classList.remove('active');
+  });
+
+  // Исключение кликов внутри меню
+  menu.addEventListener('click', (e) => {
+    e.stopPropagation();
+  });
+
+  // Добавляем на карту как контрол
+  const container = L.DomUtil.create('div');
+  container.style.cssText = 'position: absolute; bottom: 10px; right: 10px; z-index: 1000;';
+  container.appendChild(btn);
+  container.appendChild(menu);
+  document.body.appendChild(container);
 }
 
 // === ЗАПУСК ===
