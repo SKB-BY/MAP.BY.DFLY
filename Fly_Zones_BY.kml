@@ -18475,6 +18475,36 @@
           </outerBoundaryIs>
         </Polygon>
       </Placemark>
+	  <Placemark>
+        <name>UMU_8000A3</name>
+        <description>&#60;b&#62;БЕЛАЭРОНАВИГАЦИЯ&#60;/b&#62; </description>
+        <Style>
+          <LineStyle>
+            <color>FFFF0000</color>
+            <width>2</width>
+          </LineStyle>
+          <PolyStyle>
+            <color>4DFF0000</color>
+            <fill>1</fill>
+          </PolyStyle>
+        </Style>
+        <Polygon>
+          <extrude>1</extrude>
+          <outerBoundaryIs>
+            <LinearRing>
+              <coordinates>27.836437,53.817882,0
+              27.848625,53.822037,0
+              27.864161,53.815703,0
+              27.87034,53.811143,0
+              27.878752,53.793908,0
+              27.845793,53.782297,0
+              27.816439,53.798116,0
+              27.836437,53.817882,0
+              27.836437,53.817882,0 </coordinates>
+            </LinearRing>
+          </outerBoundaryIs>
+        </Polygon>
+      </Placemark>
     </Folder>
   </Document>
 </kml>
